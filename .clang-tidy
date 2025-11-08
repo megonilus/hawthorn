@@ -1,0 +1,73 @@
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  readability-*,
+  performance-*,
+  -cppcoreguidelines-*,
+  -hicpp-*,
+  -modernize-*,
+
+
+WarningsAsErrors: '*'
+
+HeaderFilterRegex: '.*'
+FormatStyle: file
+
+CheckOptions:
+  # =========================
+  # Modernize
+  # =========================
+  - key: modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key: modernize-use-auto.MinTypeNameLength
+    value: 0
+  - key: modernize-avoid-c-arrays.WarnOnAll
+    value: true
+
+  # =========================
+  # Readability
+  # =========================
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.LocalVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.MethodCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.ConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.StaticConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: lower_case
+
+  # =========================
+  # Bugprone / Safety
+  # =========================
+  - key: bugprone-suspicious-missing-comma.WarnOnAll
+    value: true
+  - key: bugprone-easily-swappable-parameters
+	value: false
+  - key: bugprone-sizeof-expression
+	value: false
+
