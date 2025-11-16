@@ -4,6 +4,7 @@
 #include "token.h"
 
 #include <share/hawthorn.h>
+#include <share/util.h>
 
 cstr get_contents_of_file(cstr file_name);
 
@@ -17,6 +18,7 @@ typedef struct
 	lexer_char current;
 	lexer_char look_ahead;
 	lexer_size line_number;
+	String	   buffer;
 
 	// PARSER
 	Token current_token;	// current token
@@ -33,8 +35,10 @@ HAWI_FUNC void	synlex_init(this, str* source_name);
 HAWI_FUNC void	synlex_setinput(this, str* source_name);
 HAWI_FUNC void	synlex_next(this);
 HAWI_FUNC noret synlex_syntaxerror(this, cstr message);
+HAWI_FUNC noret synlex_lexerror(this, cstr message);
 HAWI_FUNC cstr	synlex_tokentostr(this, TokenType token);
 
 lexer_char synlex_lex(this, SemInfo* seminfo);
+void	   synlex_destroy(this);
 
 #endif // !haw_lexer

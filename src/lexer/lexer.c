@@ -52,25 +52,80 @@ cstr get_contents_of_file(cstr file_name)
 	return buffer;
 }
 
-static noret	  lex_error(this, cstr msg, TokenType token);
+#define save(sls, c) String_appendc(&sls->buffer, c)
+#define save_and_next(sls) save(sls, sls->current), advance(sls)
+
+static noret lex_error(this, cstr msg, TokenType token);
+
+static lexer_char check_next1(this, lexer_char c)
+{
+	if (sls->current == c)
+	{
+		advance(sls);
+		return 1;
+	}
+	return 0;
+}
+
 static lexer_char check_next2(this, const char* set)
 {
 	assert(set[2] == '0');
 	if (sls->current == set[0] || sls->current == set[1])
 	{
-		save_and_next();
+		save_and_next(sls);
+		return 1;
 	}
+	return 0;
 }
-static lexer_char read_numeral(this, SemInfo* info)
-{
-	TValue		obj;
-	const char* expo = "Ee";
 
+static int str_tonum(String* a, TValue* obj) {}
+
+static lexer_char read_numeral(this, SemInfo* seminfo)
+{
+	TValue	   obj;
 	lexer_char first = sls->current;
 	assert(isdigit(sls->current));
-	advance(sls);
+	save_and_next(sls);
+	const char* prefix = "\0";
 
-	if (first == '0' &&) }
+	for (;;)
+	{
+		if (isdigit(sls->current) || sls->current == '.')
+		{
+			save_and_next(sls);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if (isalpha(sls->current))
+	{
+		synlex_lexerror(sls, "Number touching a letter");
+	}
+
+	if (str_tonum(&sls->buffer, &obj) == 0)
+	{
+		synlex_lexerror(sls, "Malform number");
+	}
+
+	if (tt_isint(&obj))
+	{
+		seminfo->int_ = int_value(&obj);
+		return TK_INT;
+	}
+
+	else
+	{
+		assert(tt_isnumber(&obj));
+		seminfo->num_ = number_value(&obj);
+
+		return TK_NUMBER;
+	}
+}
+
+static int is_reserved(String* string) {}
 
 void synlex_init(this, str* source_name)
 {
@@ -79,7 +134,7 @@ void synlex_init(this, str* source_name)
 	sls->current	   = sls->file_contents.value[0];
 }
 
-inline uint8_t current_is_new_line(this)
+uint8_t current_is_new_line(this)
 {
 	return sls->current == '\n' || sls->current == '\r';
 }
@@ -127,8 +182,36 @@ lexer_char synlex_lex(this, SemInfo* seminfo)
 		{
 			return read_numeral(sls, seminfo);
 		}
+		default:
+		{
+			if (isalpha(sls->current))
+			{
+				do
+				{
+					save_and_next(sls)
+				} while (isalnum(sls->current));
+
+				if (isreserved(sls->buffer))
+				{
+				}
+			}
+			else
+			{ // single char tokens
+				lexer_char c = sls->current;
+				advance(sls);
+
+				return c;
+			}
+		}
 		}
 	}
 }
 
+void synlex_destroy(this)
+{
+	String_destroy(&sls->buffer);
+}
+
 #undef assignl
+#undef this
+#undef this_t

@@ -24,8 +24,8 @@ typedef struct
 	HawTypes type_tag_;
 } TValue;
 
-#define HAW_WARIANT_INT (HAW_TNUMBER | (0 << 4))
-#define HAW_WARIANT_FLOAT (HAW_TNUMBER | (1 << 4))
+#define HAW_VARIANT_INT (HAW_TNUMBER | (0 << 4))
+#define HAW_VARIANT_NUMBER (HAW_TNUMBER | (1 << 4))
 
 #define val_(o) ((o)->value_)
 #define valraw(o) (val_(o))
@@ -37,10 +37,18 @@ typedef struct
 #define ttypetag(o) withvariant(rawtt(o))
 #define ttype(o) (novariant(rawtt(o)))
 
+#define HAW_VARIANT(o) (withvariant(rawtt(o)))
+
 // test your types
 #define checktag(o, t) (rawtt(o) == (t))
 #define checktype(o, t) (ttype(o) == (t))
 
 #define cast_value(val) ((Value) val)
+
+#define tt_isint(o) (HAW_VARIANT(o) == HAW_VARIANT_INT)
+#define tt_isnumber(o) (HAW_VARIANT(o) == HAW_VARIANT_NUMBER)
+
+#define int_value(o) val_(o).int_
+#define number_value(o) val_(o).number_
 
 #endif //! haw_value_h

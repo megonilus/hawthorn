@@ -35,3 +35,5 @@ noret throw_errorf(char module_name[MAX_MODULE_NAME_LENGTH], const char* msg, ..
 	va_end(args);
 	exited();
 }
+
+#undef noret

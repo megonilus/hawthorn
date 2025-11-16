@@ -2,10 +2,9 @@
 #define megonil_error
 
 #include "common.h"
+#include "util.h"
 
 #define MAX_MODULE_NAME_LENGTH 32
-
-#define noret _Noreturn void
 
 typedef struct
 {
