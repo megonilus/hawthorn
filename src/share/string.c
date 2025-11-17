@@ -1,7 +1,11 @@
+#include "share/error.h"
+
 #include <share/string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MODULE_NAME "megonil_string"
 
 int8_t str_eq(str* string, const str* other_str)
 {
@@ -84,17 +88,23 @@ void String_append(String* string, cstr append_str)
 
 void String_appendc(String* string, char c)
 {
-	if (string->length >= string->capacity)
+	if (string->length + 1 >= string->capacity)
 	{
-		string->capacity *= CAP_MULTIPLIER;
-		string->value = realloc(string->value, string->capacity);
-	}
+		if (string->capacity == 0) string->capacity = 8;
 
-	if (string->length <= string->capacity - 1)
-	{
+		string->capacity *= CAP_MULTIPLIER;
+
+		char* new_mem = realloc(string->value, string->capacity);
+		if (!new_mem)
+		{
+			error_with_line("realloc failed");
+		}
+
+		string->value = new_mem;
 	}
 
 	string->value[string->length++] = c;
+	string->value[string->length]	= '\0';
 }
 
 void String_destroy(String* string)

@@ -15,13 +15,8 @@
 
 #define MODULE_NAME "lexer"
 
-#define peek(i) (sls->file_contents.value[sls->pos + i])
-// #define advance(sls) \
-// 	((sls)->current = ((sls)->pos < (size_t) (sls)->file_contents.length                           \
-// 						   ? (unsigned char) (sls)->file_contents.value[(sls)->pos++]              \
-// 						   : EOF))
-
-#define save(sls, c) String_appendc(&sls->buffer, c)
+#define save(sls, c) String_appendc(&sls->buffer, c);
+// #define save(sls, c) String_appendc(&sls->buffer, c)
 #define save_and_next(sls)                                                                         \
 	do                                                                                             \
 	{                                                                                              \
@@ -263,12 +258,14 @@ static int str_2num(const char* s, TValue* result)
 		error("Number touching a letter");
 	}
 
-	if (!dot)
+	if (!dot) // just integer value
 	{
 		haw_int i = strtoll(s, NULL, 10);
 		setivalue(result, i);
 		return 1;
 	}
+
+	// instead haw_number
 	haw_number n = strtod(s, NULL);
 	setnvalue(result, n);
 
@@ -282,9 +279,15 @@ static lexer_char read_numeral(this, SemInfo* seminfo)
 	assert(isdigit(sls->current));
 	save_and_next(sls);
 
-	while (isdigit(sls->current) || sls->current == '.') save_and_next(sls);
+	while (isdigit(sls->current) || sls->current == '.')
+	{
+		save_and_next(sls);
+	}
 
-	if (isalpha(sls->current)) error("Number touching a letter");
+	if (isalpha(sls->current))
+	{
+		error("Number touching a letter");
+	}
 
 	TValue obj;
 	int	   t = str_2num(sls->buffer.value, &obj);
