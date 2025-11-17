@@ -4,22 +4,16 @@
 #include "common.h"
 #include "util.h"
 
-#define MAX_MODULE_NAME_LENGTH 32
+#define error(MSG) throw_error(MODULE_NAME, (MSG))
 
-typedef struct
-{
-	char* name;
-} Module;
+#define error_with_line(MSG) throw_error_with_line(MODULE_NAME, (MSG), __LINE__)
 
-#define error_at(MSG, AT) throw_error(MODULE_NAME, MSG, AT)
-#define error_with_line(MSG) throw_error(MODULE_NAME, MSG, __LINE__)
-#define error(MSG) throw_error(MODULE_NAME, MSG)
-#define errorf(msg...) throw_errorf(MODULE_NAME, msg)
+#define error_at(MSG, AT) throw_error_with_line(MODULE_NAME, (MSG), (AT))
 
-noret throw_error_with_line(char module_name[MAX_MODULE_NAME_LENGTH], const char* error_msg,
-							int line);
-noret throw_error(char module_name[MAX_MODULE_NAME_LENGTH], const char* error_msg);
+#define errorf(...) throw_errorf(MODULE_NAME, __VA_ARGS__)
 
-noret throw_errorf(char module_name[MAX_MODULE_NAME_LENGTH], const char* msg, ...);
+noret throw_error_with_line(const char* module_name, const char* error_msg, int line);
+noret throw_error(const char* module_name, const char* error_msg);
+noret throw_errorf(const char* module_name, const char* msg, ...);
 
 #endif

@@ -10,25 +10,27 @@ static noret exited()
 	exit(1);
 }
 
-noret throw_error_with_line(char module_name[MAX_MODULE_NAME_LENGTH], const char* error_msg,
-							int line)
+noret throw_error_with_line(const char* module_name, const char* error_msg, int line)
 {
-	fprintf(stderr, strcat(module_name, ": %s at %u\n"), error_msg, line);
+	fflush(stdout);
+	fprintf(stderr, "\n%s: %s at %d\n", module_name, error_msg, line);
 	exited();
 }
 
-noret throw_error(char module_name[MAX_MODULE_NAME_LENGTH], const char* error_msg)
+noret throw_error(const char* module_name, const char* error_msg)
 {
-	fprintf(stderr, strcat(module_name, ": %s\n"), error_msg);
+	fflush(stdout);
+	fprintf(stderr, "\n%s: %s\n", module_name, error_msg);
 	exited();
 }
 
-noret throw_errorf(char module_name[MAX_MODULE_NAME_LENGTH], const char* msg, ...)
+noret throw_errorf(const char* module_name, const char* msg, ...)
 {
+	fflush(stdout);
 	va_list args;
 	va_start(args, msg);
 
-	fprintf(stderr, "%s: ", module_name);
+	fprintf(stderr, "\n%s: ", module_name);
 	vfprintf(stderr, msg, args);
 	fprintf(stderr, "\n");
 
