@@ -4,6 +4,24 @@
 #include <parser/parser.h>
 #include <stdio.h>
 
+#define MAXVARS 200
+
+// Statements
+#define dstmt(s) static void s(SynLexState* sls)
+dstmt(stmt);
+dstmt(vardecl);
+
+// Expressions
+#define dexpr(s) static void s(SynLexState* sls, exprdesc* v)
+dexpr(expr);
+dexpr(intlit);
+dexpr(numlit);
+dexpr(strlit);
+dexpr(varexpr);
+
+#undef dexpr
+#undef dstmt
+
 void parse(str filename)
 {
 	SynLexState sls;

@@ -17,11 +17,14 @@ typedef union
 	haw_number number_; // float/double
 } Value;
 
+#define TValueFields                                                                               \
+	Value	 value_;                                                                               \
+	HawTypes type_tag_;
+
 // tagged values like in lua
 typedef struct
 {
-	Value	 value_;
-	HawTypes type_tag_;
+	TValueFields
 } TValue;
 
 #define HAW_VARIANT_INT (HAW_TNUMBER | (0 << 4))
