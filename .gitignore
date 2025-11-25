@@ -1,2 +1,9 @@
 build/
 .cache/
+
+# Profiling
+perf.data
+perf.data.old
+flame.svg
+out.perf
+out.folded
