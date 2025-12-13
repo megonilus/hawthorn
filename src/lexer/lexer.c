@@ -17,26 +17,23 @@
 #define MODULE_NAME "lexer"
 
 #undef this
-#define this SynLexState* sls
+#define this LexState* ls
 
-#define save(sls, c) String_appendc(&sls->buffer, c);
-// #define save(sls, c) String_appendc(&sls->buffer, c)
-#define save_and_next(sls)                                                                         \
-	do                                                                                             \
-	{                                                                                              \
-		save(sls, sls->current);                                                                   \
-		advance(sls);                                                                              \
-	} while (0)
+#define save(ls, c) String_appendc(&ls->buffer, c);
+// #define save(ls, c) String_appendc(&sls->buffer, c)
+#define save_and_next(ls)                                                                          \
+	save(ls, ls->current);                                                                         \
+	advance(ls);
 
-static inline void advance(SynLexState* sls)
+static inline void advance(LexState* ls)
 {
-	if (sls->file_contents.n < buffer_len(sls->file_contents))
+	if (ls->file_contents.n < buffer_len(ls->file_contents))
 	{
-		sls->current = buffer_readnext(sls->file_contents);
+		ls->current = buffer_readnext(ls->file_contents);
 	}
 	else
 	{
-		sls->current = EOF;
+		ls->current = EOF;
 	}
 }
 
@@ -44,9 +41,9 @@ static noret lex_error(this, cstr msg, TokenType token);
 
 static lexer_char check_next1(this, lexer_char c)
 {
-	if (sls->current == c)
+	if (ls->current == c)
 	{
-		advance(sls);
+		advance(ls);
 		return 1;
 	}
 
@@ -160,9 +157,9 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 static lexer_char check_next2(this, const char* set)
 {
 	assert(set[2] == '0');
-	if (sls->current == set[0] || sls->current == set[1])
+	if (ls->current == set[0] || ls->current == set[1])
 	{
-		save_and_next(sls);
+		save_and_next(ls);
 		return 1;
 	}
 	return 0;
@@ -170,11 +167,11 @@ static lexer_char check_next2(this, const char* set)
 
 static lexer_char keyword_or_name(this)
 {
-	lexer_char ch = is_reserved(&sls->buffer, sls->seminfo);
+	lexer_char ch = is_reserved(&ls->buffer, ls->seminfo);
 
 	if (ch == 0)
 	{
-		sls->seminfo->str_ = &sls->buffer;
+		ls->seminfo->str_ = &ls->buffer;
 		return TK_NAME;
 	}
 
@@ -248,12 +245,12 @@ static int str_2num(const char* s, TValue* result)
 
 static void read_string(this, SemInfo* seminfo)
 {
-	assert(sls->current == '"');
-	advance(sls); // "
+	assert(ls->current == '"');
+	advance(ls); // "
 
-	while (sls->current != '"')
+	while (ls->current != '"')
 	{
-		switch (sls->current)
+		switch (ls->current)
 		{
 		case EOF:
 		case '\n':
@@ -261,31 +258,31 @@ static void read_string(this, SemInfo* seminfo)
 			error("Unfinished string");
 			break;
 		default:
-			save_and_next(sls);
+			save_and_next(ls);
 		}
 	}
-	advance(sls); // "
+	advance(ls); // "
 
-	make_String(seminfo->str_, sls->buffer.value);
+	make_String(seminfo->str_, ls->buffer.value);
 }
 
 static lexer_char read_numeral(this, SemInfo* seminfo)
 {
-	assert(isdigit(sls->current));
-	save_and_next(sls);
+	assert(isdigit(ls->current));
+	save_and_next(ls);
 
-	while (isdigit(sls->current) || sls->current == '.')
+	while (isdigit(ls->current) || ls->current == '.')
 	{
-		save_and_next(sls);
+		save_and_next(ls);
 	}
 
-	if (isalpha(sls->current))
+	if (isalpha(ls->current))
 	{
 		error("Number touching a letter");
 	}
 
 	TValue obj;
-	int	   t = str_2num(sls->buffer.value, &obj);
+	int	   t = str_2num(ls->buffer.value, &obj);
 
 	if (t == 1)
 	{
@@ -299,21 +296,21 @@ static lexer_char read_numeral(this, SemInfo* seminfo)
 	}
 }
 
-void synlex_init(this, str* source_name, SemInfo* seminfo)
+void lex_init(this, str* source_name, SemInfo* seminfo)
 {
-	sls->source_name = source_name;
-	sls->seminfo	 = seminfo;
+	ls->source_name = source_name;
+	ls->seminfo		= seminfo;
 
-	buffer_init(&sls->file_contents);
-	buffer_readfile(&sls->file_contents, source_name->value);
+	buffer_init(&ls->file_contents);
+	buffer_readfile(&ls->file_contents, source_name->value);
 
-	advance(sls);
-	String_init(&sls->buffer);
+	advance(ls);
+	String_init(&ls->buffer);
 }
 
 uint8_t current_is_new_line(this)
 {
-	return sls->current == '\n' || sls->current == '\r';
+	return ls->current == '\n' || ls->current == '\r';
 }
 
 void synlex_ttype_to_str(lexer_char token, cstr_mut destiny)
@@ -336,20 +333,20 @@ void synlex_ttype_to_str(lexer_char token, cstr_mut destiny)
 	}
 }
 
-Token synlex_lex(this)
+Token lex(this)
 {
 #define result_tset(t)                                                                             \
 	result.type = t;                                                                               \
 	goto done;
 	Token result;
-	String_clear(&sls->buffer); // clear buffer
+	String_clear(&ls->buffer); // clear buffer
 
 	for (;;)
 	{
-		// #if SLS_DEBUGL
-		// 		printf("`%c` ", sls->current);
+		// #if ls_DEBUGL
+		// 		printf("`%c` ", ls->current);
 		// #endif
-		switch (sls->current)
+		switch (ls->current)
 		{
 		case EOF:
 		case '\0':
@@ -357,28 +354,28 @@ Token synlex_lex(this)
 			break;
 		case '\n':
 		case '\r':
-			sls->line_number++;
-			advance(sls);
+			ls->line_number++;
+			advance(ls);
 			break;
 		case ' ':
 		case '\t':
 		case '\f':
 		case '\v':
-			advance(sls);
+			advance(ls);
 			break;
 		case '#': // comment
-			while (!current_is_new_line(sls) && sls->current != EOF)
+			while (!current_is_new_line(ls) && ls->current != EOF)
 			{
-				advance(sls);
+				advance(ls);
 			}
 			break;
 		case '=':
-			advance(sls);			   // =
-			if (check_next1(sls, '=')) // ==
+			advance(ls);			  // =
+			if (check_next1(ls, '=')) // ==
 			{
 				result_tset(TK_EQ);
 			}
-			else if (check_next1(sls, '>'))
+			else if (check_next1(ls, '>'))
 			{
 				result_tset(TK_FATARROW);
 			}
@@ -389,8 +386,8 @@ Token synlex_lex(this)
 
 			break;
 		case '+':
-			advance(sls); // +
-			if (check_next1(sls, '+'))
+			advance(ls); // +
+			if (check_next1(ls, '+'))
 			{
 				result_tset(TK_INC);
 			}
@@ -400,8 +397,8 @@ Token synlex_lex(this)
 			}
 
 		case '-':
-			advance(sls); // -
-			if (check_next1(sls, '-'))
+			advance(ls); // -
+			if (check_next1(ls, '-'))
 			{
 				result_tset(TK_DEC);
 			}
@@ -410,8 +407,8 @@ Token synlex_lex(this)
 				result_tset('-');
 			}
 		case '<':
-			advance(sls);
-			if (check_next1(sls, '=')) // <=
+			advance(ls);
+			if (check_next1(ls, '=')) // <=
 			{
 				result_tset(TK_LE);
 			}
@@ -421,8 +418,8 @@ Token synlex_lex(this)
 			}
 			break;
 		case '>':
-			advance(sls);
-			if (check_next1(sls, '=')) // >=
+			advance(ls);
+			if (check_next1(ls, '=')) // >=
 			{
 				result_tset(TK_GE);
 			}
@@ -432,8 +429,8 @@ Token synlex_lex(this)
 			}
 			break;
 		case '!':
-			advance(sls);
-			if (check_next1(sls, '=')) // !=
+			advance(ls);
+			if (check_next1(ls, '=')) // !=
 			{
 				result_tset(TK_NOTEQ);
 			}
@@ -443,19 +440,19 @@ Token synlex_lex(this)
 			}
 			break;
 		case '"':
-			read_string(sls, sls->seminfo);
+			read_string(ls, ls->seminfo);
 			result_tset(TK_STRING);
 			break;
 		case '\'':
-			advance(sls); // '
+			advance(ls); // '
 
-			if (check_next1(sls, '\''))
+			if (check_next1(ls, '\''))
 			{
 				error("Expected char");
 			}
-			save_and_next(sls); // save the char payload(which contained in '')
+			save_and_next(ls); // save the char payload(which contained in '')
 
-			if (!check_next1(sls, '\''))
+			if (!check_next1(ls, '\''))
 			{
 				error("Expected end of char");
 			}
@@ -473,27 +470,27 @@ Token synlex_lex(this)
 		case '8':
 		case '9':
 		{
-			result_tset(read_numeral(sls, sls->seminfo));
+			result_tset(read_numeral(ls, ls->seminfo));
 			break;
 		}
 
 		default:
 		{
-			if (isalpha(sls->current) || sls->current == '_')
+			if (isalpha(ls->current) || ls->current == '_')
 			{
-				save_and_next(sls);
-				while (isalnum(sls->current) || sls->current == '_')
+				save_and_next(ls);
+				while (isalnum(ls->current) || ls->current == '_')
 				{
-					save_and_next(sls);
+					save_and_next(ls);
 				}
 
-				result_tset(keyword_or_name(sls));
+				result_tset(keyword_or_name(ls));
 			}
 			else
 			{
 				// single char tokens
-				lexer_char c = sls->current;
-				advance(sls);
+				lexer_char c = ls->current;
+				advance(ls);
 
 				result_tset(c);
 			}
@@ -503,26 +500,26 @@ Token synlex_lex(this)
 	}
 
 done:
-	result.seminfo = *sls->seminfo;
+	result.seminfo = *ls->seminfo;
 	return result;
 
 #undef result_tset
 }
 
-void synlex_destroy(this)
+void lex_destroy(this)
 {
-	String_destroy(&sls->buffer);
-	buffer_destroy(&sls->file_contents);
+	String_destroy(&ls->buffer);
+	buffer_destroy(&ls->file_contents);
 }
 
 int dislex_lastline = 1;
 
-void synlex_dislex(this, lexer_char token)
+void dislex(this, lexer_char token)
 {
-	if (sls->line_number > dislex_lastline)
+	if (ls->line_number > dislex_lastline)
 	{
 		printf("\n");
-		dislex_lastline = sls->line_number;
+		dislex_lastline = ls->line_number;
 	}
 
 	if (token < FIRST_RESERVED) // single byte symbols?

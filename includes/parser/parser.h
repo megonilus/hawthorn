@@ -114,16 +114,16 @@ typedef struct
 
 	Chunk chunk;
 
-	Token		 previous;
-	Token		 current;
-	SynLexState* sls;
+	Token	  previous;
+	Token	  current;
+	LexState* ls;
 } Parser;
 
 #undef this
 #define this Parser p
 
 void parse(str* filename);
-void parser_init(Parser* p, SynLexState* sls);
+void parser_init(Parser* p, LexState* sls);
 
 void parser_destroy(Parser* p);
 

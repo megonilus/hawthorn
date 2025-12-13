@@ -15,32 +15,29 @@ typedef struct
 	// LEXER
 	Buffer	   file_contents;
 	lexer_char current;
-	lexer_char look_ahead;
 	lexer_size line_number;
 	String	   buffer;
 	str*	   source_name;
 	SemInfo*   seminfo;
-} SynLexState;
+} LexState;
 
 // specify to print or not token which is currently being processed
 #define SLS_DEBUGL 1
 
-#define this SynLexState* sls
+#undef this
+#define this LexState* ls
 
-HAWI_FUNC void	synlex_init(this, str* source_name, SemInfo* seminfo);
-HAWI_FUNC void	synlex_setinput(this, str* source_name);
-HAWI_FUNC void	synlex_next(this);
-HAWI_FUNC noret synlex_syntaxerror(this, cstr message);
-HAWI_FUNC noret synlex_lexerror(this, cstr message);
-HAWI_FUNC cstr	synlex_tokentostr(this, TokenType token);
+void lex_init(this, str* source_name, SemInfo* seminfo);
+void lex_destroy(this);
 
-Token synlex_lex(this);
-void  synlex_destroy(this);
+Token lex(this);
+void  lex_setintput(this, str* source_name);
+
+cstr_mut tok_2str(cstr_mut s, lexer_char token);
 
 #if SLS_DEBUGL
 
-void	 synlex_dislex(this, lexer_char token);
-cstr_mut tok_2str(cstr_mut s, lexer_char token);
+void dislex(this, lexer_char token);
 
 #endif
 

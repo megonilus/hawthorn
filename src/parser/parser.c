@@ -22,7 +22,7 @@ this;
 static void next()
 {
 	p.previous = p.current;
-	p.current  = synlex_lex(p.sls);
+	p.current  = lex(p.ls);
 }
 
 static void consumef(TokenType type, cstr msg)
@@ -137,7 +137,7 @@ static ParseRule rules[] = {
 #define expecteds(t) errorf("Expected %s", tok_2str(t))
 #define expected(m) errorf("Expected %s", m)
 
-#define seminf p.sls->seminfo
+#define seminf p.ls->seminfo
 
 static void stmt()
 {
@@ -333,9 +333,9 @@ static void literal()
 	write_constant(&p.chunk, result);
 }
 
-void parser_init(Parser* p, SynLexState* sls)
+void parser_init(Parser* p, LexState* sls)
 {
-	p->sls		   = sls;
+	p->ls		   = sls;
 	p->scopes_deep = 0;
 
 	chunk_init(&p->chunk);
@@ -347,10 +347,10 @@ void parser_init(Parser* p, SynLexState* sls)
 void parse(str* filename)
 {
 	SemInfo seminfo;
-	synlex_init(p.sls, filename, &seminfo);
+	lex_init(p.ls, filename, &seminfo);
 	next();
 
-	for (synlex_dislex(p.sls, p.current.type); p.current.type != TK_EOF; stmt())
+	for (dislex(p.ls, p.current.type); p.current.type != TK_EOF; stmt())
 	{
 	}
 
@@ -360,13 +360,13 @@ void parse(str* filename)
 	disassemble(&p.chunk);
 #endif
 
-	synlex_destroy(p.sls);
+	lex_destroy(p.ls);
 }
 
 void parser_destroy(Parser* p)
 {
 	chunk_destroy(&p->chunk);
-	synlex_destroy(p->sls);
+	lex_destroy(p->ls);
 	array_free(p->vars);
 }
 

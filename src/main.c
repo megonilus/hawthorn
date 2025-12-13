@@ -14,8 +14,8 @@ int main(int argc, char* argv[])
 
 	else if (argc == 2)
 	{
-		SynLexState sls;
-		str			source_name = make_str(argv[1]);
+		LexState sls;
+		str		 source_name = make_str(argv[1]);
 
 		parser_init(&p, &sls);
 		parse(&source_name);
