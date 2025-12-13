@@ -70,7 +70,7 @@ static void constantlong_instruction(Chunk* chunk, int* offset)
 					 (uint32_t) chunk->code[*offset + 2] << 8 |
 					 (uint32_t) chunk->code[*offset + 3] << 16;
 
-	printf("%04d %s %3u (", (*offset)++, op_name(OP_CONSTANT), index);
+	printf("%04d %s %3u (", *offset, op_name(OP_CONSTANT_LONG), index);
 
 	if (index < array_size(chunk->constants))
 	{

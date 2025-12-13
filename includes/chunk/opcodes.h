@@ -1,8 +1,6 @@
 #ifndef haw_bytecode
 #define haw_bytecode
 
-#include "lexer/token.h"
-
 #include <share/common.h>
 #include <share/error.h>
 
@@ -22,6 +20,12 @@ typedef enum : uint8_t
 	OP_NEG,	 // negate
 	OP_NOT,	 // !
 	OP_POW,	 // ^
+	OP_AND,	 // and
+	OP_OR,	 // or
+	OP_GE,	 // >=
+	OP_LE,	 // <=
+	OP_GT,	 // >
+	OP_LT,	 // <
 
 	OP_JMP,	 // jump <K>
 	OP_JMPF, // jump <K> if pop() false
@@ -63,6 +67,10 @@ static const char* opnames[NUM_OPCODES] = {
 	[OP_PRINT]		   = "PRINT",
 	[OP_NOT]		   = "NOT",
 	[OP_POW]		   = "POW",
+	[OP_GE]			   = "GE",
+	[OP_GT]			   = "GT",
+	[OP_LE]			   = "LE",
+	[OP_LT]			   = "LT",
 };
 
 typedef enum
@@ -72,6 +80,7 @@ typedef enum
 	OPR_BSUB,  // a - b
 	OPR_BMUL,  // a * b
 	OPR_BDIV,  // a / b
+	OPR_BMOD,  // a % b
 	OPR_BIDIV, // a // b
 	OPR_BPOW,  // a ^ b
 
@@ -92,73 +101,8 @@ typedef enum
 	OPR_DEC,	// --
 } UnOpr;
 
-#define opcase(ch, opr)                                                                            \
-	case ch:                                                                                       \
-		return opr;
-
-static BinOpr getbinopr(int op)
-{
-	switch (op)
-	{
-		opcase('+', OPR_BADD);
-		opcase('-', OPR_BSUB);
-		opcase('*', OPR_BMUL);
-		opcase('/', OPR_BDIV);
-		opcase(TK_IDIV, OPR_BIDIV);
-		opcase(TK_AND, OPR_BAND);
-		opcase(TK_OR, OPR_BOR);
-		opcase(TK_GE, OPR_BGE);
-		opcase(TK_LE, OPR_BLE);
-		opcase('>', OPR_BGT);
-		opcase('<', OPR_BLT);
-		opcase('^', OPR_BPOW);
-	default:
-		error("Expected BinaryOperator");
-	}
-}
-
-static UnOpr getunopr(int op)
-{
-	switch (op)
-	{
-		opcase('-', OPR_NEGATE);
-		opcase('!', OPR_NOT);
-
-		opcase(TK_INC, OPR_INC);
-		opcase(TK_DEC, OPR_DEC);
-	default:
-		error("Expected UnaryOperator");
-	}
-
-#undef opcase
-}
-
-// push: how much values pushes to stack
-// pop: how much values pops from stack
-// jump: does manipulating ip
-// has_arg: has argument
-// use_k: does use constants
-// ret: does manipulate on program execution
-#define op_prop(push, pop, jump, has_arg, use_k, ret)                                              \
-	(((pop) << 12) | ((push) << 8) | ((jump) << 4) | ((has_arg) << 3) | ((use_k) << 2) |           \
-	 ((ret) << 1))
-
-typedef uint16_t opprop_mask;
-
-static const opprop_mask op_props[] = {
-	[OP_ADD] = op_prop(2, 1, 0, 0, 0, 0),		[OP_MUL] = op_prop(2, 1, 0, 0, 0, 0),
-	[OP_SUB] = op_prop(2, 1, 0, 0, 0, 0),		[OP_DIV] = op_prop(2, 1, 0, 0, 0, 0),
-	[OP_IDIV] = op_prop(2, 1, 0, 0, 0, 0),		[OP_MOD] = op_prop(2, 1, 0, 0, 0, 0),
-	[OP_NEG] = op_prop(1, 1, 0, 0, 0, 0),		[OP_RETURN] = op_prop(1, 0, 0, 0, 0, 1),
-	[OP_CONSTANT] = op_prop(1, 0, 0, 1, 0, 0),	[OP_CONSTANT_LONG] = op_prop(1, 0, 0, 1, 0, 0),
-	[OP_SETLOCAL] = op_prop(0, 2, 0, 1, 0, 0),	[OP_SETGLOBAL] = op_prop(0, 2, 0, 1, 0, 0),
-	[OP_LOADLOCAL] = op_prop(1, 0, 0, 1, 0, 0), [OP_LOADGLOBAL] = op_prop(1, 0, 0, 1, 0, 0),
-	[OP_CALL] = op_prop(0, 0, 0, 1, 0, 0),		[OP_HALT] = op_prop(0, 0, 0, 0, 0, 0),
-};
-
-#define op_numarg(op) ((op_props[op] >> 8) & 0xF)
-#define op_hasflag(op, flag) (op_props[op] & (flag))
-
+BinOpr		getbinopr(int op);
+UnOpr		getunopr(int op);
 const char* op_name(OpCodes op);
 
 #endif

@@ -71,12 +71,20 @@ static void prec(Precedence prec);
 
 static ParseRule rules[] = {
 	// operators
+	// arithmetic
 	fullrule('+', unary, binary, PREC_TERM),
 	fullrule('-', unary, binary, PREC_TERM),
 	rule('*', NULL, binary, PREC_FACTOR),
 	rule('/', NULL, binary, PREC_FACTOR),
 	rule('^', NULL, binary, PREC_FACTOR),
 	rule(TK_IDIV, NULL, binary, PREC_FACTOR),
+	// boolean
+	rule(TK_AND, NULL, binary, PREC_AND),
+	rule(TK_OR, NULL, binary, PREC_AND),
+	rule(TK_GE, NULL, binary, PREC_COMPARISON),
+	rule(TK_LE, NULL, binary, PREC_COMPARISON),
+	rule('>', NULL, binary, PREC_COMPARISON),
+	rule('<', NULL, binary, PREC_COMPARISON),
 	// unary
 	rule(TK_INC, unary, postfix, PREC_UNARY),
 	rule(TK_DEC, unary, postfix, PREC_UNARY),
@@ -90,17 +98,11 @@ static ParseRule rules[] = {
 	emptyrule(','),
 	emptyrule('.'),
 	emptyrule('='),
-	emptyrule('>'),
-	emptyrule('<'),
 	emptyrule(':'),
 	// 2 char symbols
 	emptyrule(TK_EQ),
-	emptyrule(TK_LE),
-	emptyrule(TK_GE),
 	emptyrule(TK_FATARROW),
 	// keywords
-	emptyrule(TK_AND),
-	emptyrule(TK_OR),
 	emptyrule(TK_BIND),
 	emptyrule(TK_SET),
 	emptyrule(TK_WHILE),
@@ -170,7 +172,6 @@ static void printstat()
 	next();
 	expr();
 	emit_byte(&p.chunk, OP_PRINT);
-	next();
 }
 
 static void expr()
@@ -215,12 +216,20 @@ static void binary()
 		emit_byte(&p.chunk, B);                                                                    \
 		break;
 
+		// arithmetic
 		oper(OPR_BADD, OP_ADD);
 		oper(OPR_BSUB, OP_SUB);
 		oper(OPR_BMUL, OP_MUL);
 		oper(OPR_BDIV, OP_DIV);
 		oper(OPR_BIDIV, OP_IDIV);
 		oper(OPR_BPOW, OP_POW);
+		// boolean
+		oper(OPR_BAND, OP_AND);
+		oper(OPR_BOR, OP_OR);
+		oper(OPR_BGE, OP_GE);
+		oper(OPR_BLE, OP_LE);
+		oper(OPR_BGT, OP_GT);
+		oper(OPR_BLT, OP_LT);
 
 #undef oper
 	default:
@@ -347,7 +356,6 @@ void parse(str* filename)
 
 	printf("\n"); // END debug seq
 	halt();
-
 #ifdef DISASSEMBLE
 	disassemble(&p.chunk);
 #endif

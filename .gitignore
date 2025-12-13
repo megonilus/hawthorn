@@ -1,5 +1,6 @@
 build/
 .cache/
+test/test2.haw
 
 # Profiling
 perf.data
