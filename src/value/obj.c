@@ -12,16 +12,16 @@ static Obj* allocate_object(size_t size, ObjType type)
 	return object;
 }
 
-static ObjString* allocate_string(char* chars, int length)
+static haw_string* allocate_string(char* chars, int length)
 {
-	ObjString* string = allocate_obj(ObjString, OBJ_STRING);
-	string->length	  = length;
-	string->chars	  = chars;
+	haw_string* string = allocate_obj(haw_string, OBJ_STRING);
+	string->length	   = length;
+	string->chars	   = chars;
 
 	return string;
 }
 
-ObjString* copy_string(const char* chars, int length)
+haw_string* copy_string(const char* chars, int length)
 {
 	char* heap_chars = allocate(char, length + 1);
 	memcpy(heap_chars, chars, length);

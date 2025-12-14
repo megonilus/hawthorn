@@ -91,8 +91,8 @@ int valueeq(const TValue* left, const TValue* right)
 			switch (obj_type(left))
 			{
 			case OBJ_STRING:
-				ObjString* a = string_value(left);
-				ObjString* b = string_value(right);
+				haw_string* a = string_value(left);
+				haw_string* b = string_value(right);
 
 				return a->length == b->length && memcmp(a, b, a->length) == 0;
 			}

@@ -44,7 +44,7 @@ typedef struct
 
 #define int_value(o) (o)->value_.int_
 #define number_value(o) (o)->value_.number_
-#define string_value(o) ((ObjString*) (o)->value_.obj_)
+#define string_value(o) ((haw_string*) (o)->value_.obj_)
 #define cstring_value(o) string_value(o)->chars
 
 #define obj_value(o) (o)->value_.obj_

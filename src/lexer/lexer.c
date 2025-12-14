@@ -436,7 +436,6 @@ Token lex(this)
 			{
 				result_tset('+');
 			}
-
 		case '&':
 			advance(ls); // &
 			if (check_next1(ls, '&'))
@@ -472,6 +471,10 @@ Token lex(this)
 			if (check_next1(ls, '=')) // <=
 			{
 				result_tset(TK_LE);
+			}
+			else if (check_next1(ls, '>'))
+			{
+				result_tset(TK_CONCAT);
 			}
 			else
 			{

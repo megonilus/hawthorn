@@ -33,11 +33,12 @@ typedef enum
 	// operators
 	TK_AND,
 	TK_OR,
-	TK_NOTEQ, // !=
-	TK_EQ,	  // ==
-	TK_LE,
-	TK_GE,
-	TK_IDIV,
+	TK_NOTEQ,  // !=
+	TK_EQ,	   // ==
+	TK_LE,	   // <=
+	TK_GE,	   // >=
+	TK_IDIV,   // //
+	TK_CONCAT, // <>
 
 	// literals
 	TK_BOOL,
@@ -59,9 +60,9 @@ typedef enum
 
 typedef union
 {
-	haw_number num_;
-	haw_int	   int_;
-	ObjString* str_;
+	haw_number	num_;
+	haw_int		int_;
+	haw_string* str_;
 } SemInfo;
 
 typedef struct
