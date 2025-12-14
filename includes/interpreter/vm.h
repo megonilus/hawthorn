@@ -9,9 +9,12 @@ typedef struct
 {
 	Chunk*	chunk;
 	TValue* stack;
+	Obj*	objects;
 
 	size_t pc; // Program Counter
 } vm;
+
+extern vm v;
 
 void vm_init(Chunk* chunk);
 void vm_execute();

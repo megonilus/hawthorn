@@ -26,9 +26,10 @@ vm v;
 
 void vm_init(Chunk* chunk)
 {
-	v.stack = array(TValue);
-	v.chunk = chunk;
-	v.pc	= 0;
+	v.stack	  = array(TValue);
+	v.chunk	  = chunk;
+	v.pc	  = 0;
+	v.objects = NULL;
 }
 
 size_t chunk_size()
@@ -229,6 +230,7 @@ void vm_execute()
 void vm_destroy()
 {
 	chunk_destroy(v.chunk);
+	free_objects();
 }
 
 #undef pop

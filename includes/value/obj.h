@@ -8,7 +8,8 @@ typedef enum
 
 struct Obj
 {
-	ObjType type;
+	ObjType		type;
+	struct Obj* next;
 };
 
 struct ObjString
@@ -25,7 +26,14 @@ typedef struct ObjString haw_string;
 
 #define allocate(t, c) (t*) malloc(sizeof(t) * c)
 
+#define cast_obj(o) cast(haw_string*, o)
+#define cast_string(o) cast(haw_string*, o)
+
+// work with strings
 haw_string* copy_string(const char* chars, int length);
 haw_string* concatenate(haw_string* a, haw_string* b);
+
+// general use
+void free_objects();
 
 #endif

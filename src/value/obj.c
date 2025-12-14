@@ -1,3 +1,4 @@
+#include <interpreter/vm.h>
 #include <stdlib.h>
 #include <string.h>
 #include <value/obj.h>
@@ -6,9 +7,12 @@
 
 static Obj* allocate_object(size_t size, ObjType type)
 {
-	Obj* object = allocate(Obj, 1);
+	Obj* object = (Obj*) malloc(size);
 
 	object->type = type;
+	object->next = v.objects;
+	v.objects	 = object;
+
 	return object;
 }
 
@@ -42,4 +46,29 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	haw_string* result = allocate_string(chars, length);
 
 	return result;
+}
+
+static void free_object(Obj* obj)
+{
+	switch (obj->type)
+	{
+	case OBJ_STRING:
+		haw_string* string = cast_string(obj);
+
+		free(string->chars);
+		free(obj);
+		break;
+	}
+}
+
+void free_objects()
+{
+	Obj* object = v.objects;
+
+	while (object != NULL)
+	{
+		Obj* next = object->next;
+		free_object(object);
+		object = next;
+	}
 }
