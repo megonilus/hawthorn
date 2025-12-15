@@ -4,7 +4,6 @@
 #include "chunk/opcodes.h"
 #include "lexer/lexer.h"
 #include "share/array.h"
-#include "share/string.h"
 #include "type/type.h"
 #include "value/obj.h"
 #include "value/value.h"
@@ -12,6 +11,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -128,23 +128,42 @@ void vm_execute()
 				result.type = HAW_TNUMBER;
 				setnvalue(&result, val_to_num(&a) * val_to_num(&b));
 			}
+
 			else if (t_isstring(&a) && t_isint(&b))
 			{
-				result.type		  = HAW_TOBJECT;
-				obj_type(&result) = OBJ_STRING;
+				result.type = HAW_TOBJECT;
+				int count	= int_value(&b);
 
-				String res;
-				make_Stringl(&res, string_value(&a)->chars, string_value(&a)->length); // copy
-
-				for (size_t i = 0; i < int_value(&b); i++)
+				if (count < 1)
 				{
-					String_append(&res, string_value(&a)->chars);
+					error("Wrong counter");
 				}
 
-				haw_string* new_str = allocate_string(res.value, res.length);
-				String_destroy(&res);
+				int len	  = string_value(&a)->length;
+				int total = len * count;
 
-				setovalue(&result, new_str);
+				size_t chars_size = sizeof(char) * (total + 1);
+
+				haw_string* string =
+					allocate_obj_fam(sizeof(*string) + chars_size, haw_string, OBJ_STRING);
+
+				string->length = total;
+				string->chars  = (char*) (string + 1);
+
+				char* dest = string->chars;
+				for (int i = 0; i < count; i++)
+				{
+					if (len > 0)
+					{
+						memcpy(dest, string_value(&a)->chars, len);
+						dest += len;
+					}
+				}
+
+				string->chars[total] = '\0';
+
+				setovalue(&result, string);
+				obj_type(&result) = OBJ_STRING;
 			}
 			else
 			{
@@ -256,6 +275,7 @@ void vm_execute()
 			macrostart();
 			result.type = HAW_TOBJECT;
 			setovalue(&result, concatenate(string_value(&a), string_value(&b)));
+			obj_type(&result) = OBJ_STRING;
 
 			macroend();
 		}
@@ -273,6 +293,7 @@ void vm_destroy()
 {
 	chunk_destroy(v.chunk);
 	free_objects();
+	array_free(v.stack);
 }
 
 #undef pop

@@ -41,7 +41,7 @@ static void consumef(TokenType type, cstr msg)
 		next();
 		return;
 	}
-	errorf("Expected %s, found %s", tok_2str("", type), tok_2str("", p.current.type));
+	errorf("Expected %s, found %s", tok_2str(type), tok_2str(p.current.type));
 }
 
 static void consume(TokenType type, cstr msg)
@@ -51,7 +51,7 @@ static void consume(TokenType type, cstr msg)
 		next();
 		return;
 	}
-	errorf("Expected %s %s", tok_2str("", type), msg);
+	errorf("Expected %s %s", tok_2str(type), msg);
 }
 
 // Statements
@@ -333,15 +333,20 @@ static void literal()
 	case TK_INT:
 		result.type = HAW_TINT;
 		setivalue(&result, seminf->int_);
+
 		break;
 	case TK_STRING:
-		setovalue(&result, seminf->str_);
-		obj_type(&result) = OBJ_STRING;
+		haw_string* string = copy_string(seminf->str_->chars, seminf->str_->length);
+		setovalue(&result, string);
+
 		result.type		  = HAW_TOBJECT;
+		obj_type(&result) = OBJ_STRING;
 		break;
 	case TK_CHAR:
 		setivalue(&result, *seminf->str_->chars); // assign the 1st char
 		result.type = HAW_TINT;
+
+		free_object(cast_obj(seminf->str_));
 		break;
 	default:
 		expected("expression");

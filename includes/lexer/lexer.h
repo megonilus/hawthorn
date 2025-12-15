@@ -33,7 +33,7 @@ void lex_destroy(this);
 Token lex(this);
 void  lex_setintput(this, str* source_name);
 
-cstr_mut tok_2str(cstr_mut s, lexer_char token);
+cstr_mut tok_2str(lexer_char token);
 
 void dislex(this, lexer_char token);
 

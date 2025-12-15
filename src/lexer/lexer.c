@@ -343,8 +343,8 @@ static void read_string(this)
 			save_and_next(ls);
 		}
 	}
-	advance(ls); // "
 
+	advance(ls); // "
 	ls->seminfo->str_ = copy_string(ls->buffer.value, ls->buffer.length);
 }
 
@@ -393,26 +393,6 @@ void lex_init(this, str* source_name, SemInfo* seminfo)
 uint8_t current_is_new_line(this)
 {
 	return ls->current == '\n' || ls->current == '\r';
-}
-
-void synlex_ttype_to_str(lexer_char token, cstr_mut destiny)
-{
-	if (token < FIRST_RESERVED) // single byte symbols?
-	{
-		if (isprint(token))
-		{
-			sprintf(destiny, "%c", token);
-		}
-		else
-		{
-			sprintf(destiny, "\\%d", token);
-		}
-	}
-	else
-	{
-		const char* s = haw_tokens[token - FIRST_RESERVED];
-		sprintf(destiny, "%s", s);
-	}
 }
 
 Token lex(this)
@@ -510,8 +490,6 @@ Token lex(this)
 		case '"':
 			read_string(ls);
 			result_tset(TK_STRING);
-			break;
-
 		case '\'':
 			advance(ls); // '
 
@@ -536,7 +514,6 @@ Token lex(this)
 
 			ls->seminfo->str_ = copy_string(ls->buffer.value, ls->buffer.length);
 			result_tset(TK_CHAR);
-			break;
 		case '0':
 		case '1':
 		case '2':
@@ -549,7 +526,6 @@ Token lex(this)
 		case '9':
 		{
 			result_tset(read_numeral(ls));
-			break;
 		}
 
 		default:
@@ -573,7 +549,6 @@ Token lex(this)
 				result_tset(c);
 			}
 		}
-		break;
 		}
 	}
 
@@ -590,7 +565,7 @@ void lex_destroy(this)
 	buffer_destroy(&ls->file_contents);
 }
 
-int dislex_lastline = 1;
+int dislex_lastline = 0;
 
 void dislex(this, lexer_char token)
 {
@@ -600,35 +575,32 @@ void dislex(this, lexer_char token)
 		dislex_lastline = ls->line_number;
 	}
 
-	if (token < FIRST_RESERVED) // single byte symbols?
+	if (token < FIRST_RESERVED && isprint(token)) // single byte symbols?
 	{
-		if (isprint(token))
-		{
-			printf("%c ", token);
-		}
-		else
-		{
-			printf("\\%d", token);
-		}
+		printf("%c ", token);
 	}
+
 	else
 	{
-		const char* s = haw_tokens[token - FIRST_RESERVED];
+		const char* s = tok_2str(token);
 		printf("%s ", s);
 	}
 }
 
-cstr_mut tok_2str(cstr_mut s, lexer_char token)
+#define MAX_TOKEN_BUFF 32
+
+cstr_mut tok_2str(lexer_char token)
 {
+	static char s[MAX_TOKEN_BUFF];
 	if (token < FIRST_RESERVED) // single byte symbols?
 	{
 		if (isprint(token))
 		{
-			sprintf(s, "%c", token);
+			snprintf(s, MAX_TOKEN_BUFF, "%c", token);
 		}
 		else
 		{
-			sprintf(s, "\\%d", token);
+			snprintf(s, MAX_TOKEN_BUFF, "\\%d", token);
 		}
 	}
 	else

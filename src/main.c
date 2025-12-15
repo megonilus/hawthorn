@@ -18,9 +18,9 @@ int main(int argc, char* argv[])
 		LexState sls;
 		str		 source_name = make_str(argv[1]);
 
+		vm_init(&p.chunk);
 		parser_init(&p, &sls);
 		parse(&source_name);
-		vm_init(&p.chunk);
 
 		vm_execute();
 		parser_destroy(&p);

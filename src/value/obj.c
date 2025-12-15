@@ -4,13 +4,9 @@
 #include <string.h>
 #include <value/obj.h>
 
-#define allocate_obj(type, object_type) (type*) allocate_object(sizeof(type), object_type)
-
-#define allocate_obj_fam(size, type, object_type) (type*) allocate_object(size, object_type)
-
 #define endstring(s, l) (s)[(l)] = '\0'
 
-static Obj* allocate_object(size_t size, ObjType type)
+Obj* allocate_object(size_t size, ObjType type)
 {
 	Obj* object = (Obj*) malloc(size);
 
@@ -23,9 +19,11 @@ static Obj* allocate_object(size_t size, ObjType type)
 
 haw_string* allocate_string(char* chars, int length)
 {
-	haw_string* string = allocate_obj(haw_string, OBJ_STRING);
-	string->length	   = length;
-	string->chars	   = chars;
+	haw_string* string =
+		allocate_obj_fam(sizeof(haw_string) + sizeof(char) * length, haw_string, OBJ_STRING);
+
+	string->length = length;
+	string->chars  = chars;
 
 	return string;
 }
@@ -63,7 +61,7 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	return string;
 }
 
-static void free_object(Obj* obj)
+void free_object(Obj* obj)
 {
 	switch (obj->type)
 	{
