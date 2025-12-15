@@ -23,7 +23,7 @@ void chunk_destroy(this)
 	array_free(chunk->constants);
 }
 
-static void simple_instruction(OpCodes opcode, int* offset)
+static void simple_instruction(OpCode opcode, int* offset)
 {
 	printf("%4d %s\n", *offset, op_name(opcode));
 	(*offset)++;

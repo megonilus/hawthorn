@@ -4,9 +4,12 @@
 #include <share/common.h>
 #include <share/error.h>
 
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
 #define MODULE_NAME "opcodes"
 
-typedef enum : uint8_t
+typedef enum
 {
 	OP_CONSTANT,
 	OP_CONSTANT_LONG,
@@ -43,13 +46,9 @@ typedef enum : uint8_t
 	OP_RETURN,
 
 	OP_HALT,
+} OpCode;
 
-	OP_LAST,
-} OpCodes;
-
-#define NUM_OPCODES ((int) OP_LAST)
-
-static const char* opnames[NUM_OPCODES] = {
+static const char* opnames[] = {
 	[OP_CONSTANT]	   = "CONSTANT",
 	[OP_CONSTANT_LONG] = "CONSTANT_LONG",
 	[OP_ADD]		   = "ADD",
@@ -111,6 +110,6 @@ typedef enum
 
 BinOpr		getbinopr(int op);
 UnOpr		getunopr(int op);
-const char* op_name(OpCodes op);
+const char* op_name(OpCode op);
 
 #endif

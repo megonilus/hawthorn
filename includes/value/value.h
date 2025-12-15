@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <type/type.h>
 
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
 #define MODULE_NAME "value"
 
 // values of all types are first-class values: we can store them
@@ -70,7 +73,7 @@ static inline haw_number val_to_num(const TValue* v)
 	return t_isint(v) ? (haw_number) int_value(v) : number_value(v);
 }
 
-static inline bool is_objtype(const TValue* value, ObjType type)
+static inline int is_objtype(const TValue* value, ObjType type)
 {
 	return t_isobject(value) && obj_value(value)->type == type;
 }

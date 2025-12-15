@@ -2,6 +2,9 @@
 #include <share/error.h>
 #include <stdlib.h>
 
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
 #define MODULE_NAME "megonil_array"
 
 void* array_init(size_t item_size, size_t capacity)

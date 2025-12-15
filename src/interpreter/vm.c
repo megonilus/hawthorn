@@ -13,10 +13,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-vm v;
-
+#ifdef MODULE_NAME
 #undef MODULE_NAME
+#endif
 #define MODULE_NAME "vm"
+
+vm v;
 
 #define pop() array_pop(v.stack, TValue)
 #define push(valu) array_push(v.stack, valu)

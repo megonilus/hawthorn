@@ -7,7 +7,7 @@
 	case ch:                                                                                       \
 		return opr;
 
-const char* op_name(OpCodes op)
+const char* op_name(OpCode op)
 {
 	return opnames[op];
 }

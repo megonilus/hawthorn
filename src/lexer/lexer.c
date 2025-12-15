@@ -18,7 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef MODULE_NAME
 #undef MODULE_NAME
+#endif
 #define MODULE_NAME "lexer"
 
 #undef this

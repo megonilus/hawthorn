@@ -10,7 +10,9 @@
 #include <share/error.h>
 #include <share/string.h>
 
+#ifdef MODULE_NAME
 #undef MODULE_NAME
+#endif
 #define MODULE_NAME "parser"
 
 #include <parser/parser.h>
