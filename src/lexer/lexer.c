@@ -445,6 +445,26 @@ Token lex(this)
 		case '\v':
 			advance(ls);
 			break;
+#define doubletok(t, single_t, dt, double_t)                                                       \
+	case t:                                                                                        \
+	{                                                                                              \
+		advance(ls);                                                                               \
+		if (check_next1(ls, dt))                                                                   \
+		{                                                                                          \
+			result_tset(double_t);                                                                 \
+		}                                                                                          \
+		else                                                                                       \
+		{                                                                                          \
+			result_tset(single_t)                                                                  \
+		}                                                                                          \
+	}
+			doubletok('+', '+', '+', TK_INC);
+			doubletok('-', '-', '-', TK_DEC);
+			doubletok('&', '&', '&', TK_AND);
+			doubletok('|', '|', '|', TK_OR);
+			doubletok('>', '>', '=', TK_GE);
+			doubletok('/', '/', '/', TK_IDIV);
+			doubletok('!', '!', '=', TK_NOTEQ);
 		case '\\':
 			advance(ls);
 			if (check_next1(ls, '\\')) // comment
@@ -457,17 +477,6 @@ Token lex(this)
 			else
 			{
 				result_tset('\\');
-			}
-			break;
-		case '/':
-			advance(ls);
-			if (check_next1(ls, '/'))
-			{
-				result_tset(TK_IDIV);
-			}
-			else
-			{
-				result_tset('/')
 			}
 		case '=':
 			advance(ls);			  // =
@@ -483,48 +492,6 @@ Token lex(this)
 			{
 				result_tset('=');
 			}
-
-			break;
-		case '+':
-			advance(ls); // +
-			if (check_next1(ls, '+'))
-			{
-				result_tset(TK_INC);
-			}
-			else
-			{
-				result_tset('+');
-			}
-		case '&':
-			advance(ls); // &
-			if (check_next1(ls, '&'))
-			{
-				result_tset(TK_AND);
-			}
-			else
-			{
-				result_tset('&');
-			}
-		case '|':
-			advance(ls); // |
-			if (check_next1(ls, '|'))
-			{
-				result_tset(TK_OR);
-			}
-			else
-			{
-				result_tset('|');
-			}
-		case '-':
-			advance(ls); // -
-			if (check_next1(ls, '-'))
-			{
-				result_tset(TK_DEC);
-			}
-			else
-			{
-				result_tset('-');
-			}
 		case '<':
 			advance(ls);
 			if (check_next1(ls, '=')) // <=
@@ -539,33 +506,12 @@ Token lex(this)
 			{
 				result_tset('<');
 			}
-			break;
-		case '>':
-			advance(ls);
-			if (check_next1(ls, '=')) // >=
-			{
-				result_tset(TK_GE);
-			}
-			else
-			{
-				result_tset('>');
-			}
-			break;
-		case '!':
-			advance(ls);
-			if (check_next1(ls, '=')) // !=
-			{
-				result_tset(TK_NOTEQ);
-			}
-			else
-			{
-				result_tset('!');
-			}
-			break;
+#undef doubletok
 		case '"':
 			read_string(ls, ls->seminfo);
 			result_tset(TK_STRING);
 			break;
+
 		case '\'':
 			advance(ls); // '
 

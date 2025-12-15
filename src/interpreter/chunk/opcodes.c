@@ -30,6 +30,7 @@ BinOpr getbinopr(int op)
 		opcase('^', OPR_BPOW);
 		opcase('%', OPR_BMOD);
 		opcase(TK_CONCAT, OPR_BCONCAT);
+		opcase(TK_NOTEQ, OPR_BNEQ);
 	default:
 		error("Expected BinaryOperator");
 	}

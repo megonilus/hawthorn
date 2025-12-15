@@ -98,6 +98,8 @@ typedef enum
 	OPR_BAND, // a and b
 	OPR_BOR,  // a or b
 	OPR_BEQ,  // ==
+	OPR_BNEQ, // !=
+
 } BinOpr;
 
 typedef enum

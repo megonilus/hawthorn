@@ -1,1 +1,7 @@
 print "1234" <> "5678"
+print 2 ^ 5
+print 11 % 2
+print 5 // 2
+print 1 != 2
+print 2 >= 3
+print 2 <= 3

@@ -94,7 +94,8 @@ static ParseRule rules[] = {
 	rule(TK_OR, NULL, binary, PREC_AND),
 	rule(TK_GE, NULL, binary, PREC_COMPARISON),
 	rule(TK_LE, NULL, binary, PREC_COMPARISON),
-	rule(TK_EQ, NULL, binary, PREC_COMPARISON),
+	rule(TK_EQ, NULL, binary, PREC_EQ),
+	rule(TK_NOTEQ, NULL, binary, PREC_EQ),
 	rule('>', NULL, binary, PREC_COMPARISON),
 	rule('<', NULL, binary, PREC_COMPARISON),
 	// unary
@@ -244,6 +245,10 @@ static void binary()
 		oper(OPR_BGT, OP_GT);
 		oper(OPR_BLT, OP_LT);
 		oper(OPR_BEQ, OP_EQ);
+	case OPR_BNEQ:
+		emit_byte(&p.chunk, OP_EQ);
+		emit_byte(&p.chunk, OP_NOT);
+		break;
 
 #undef oper
 	default:
