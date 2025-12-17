@@ -45,6 +45,8 @@ typedef enum
 	OP_PRINT,
 	OP_RETURN,
 
+	OP_POP,
+
 	OP_HALT,
 } OpCode;
 
@@ -76,6 +78,7 @@ static const char* opnames[] = {
 	[OP_AND]		   = "AND",
 	[OP_OR]			   = "OR",
 	[OP_CONCAT]		   = "CONCAT",
+	[OP_POP]		   = "POP",
 };
 
 typedef enum

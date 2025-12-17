@@ -11,6 +11,7 @@ typedef struct
 	Chunk*	chunk;
 	TValue* stack;
 	Table	strings;
+	Table	globals;
 	Obj*	objects;
 
 	size_t pc; // Program Counter

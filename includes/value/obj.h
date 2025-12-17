@@ -36,7 +36,7 @@ typedef struct ObjString haw_string;
 #define cast_string(o) cast(haw_string*, o)
 
 // work with strings
-haw_string* copy_string(const char* chars, int length);
+haw_string* copy_string(char* chars, int length);
 haw_string* concatenate(haw_string* a, haw_string* b);
 haw_string* take_string(char* chars, int length);
 

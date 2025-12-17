@@ -3,6 +3,7 @@
 
 #include <interpreter/vm.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <value/obj.h>
@@ -25,6 +26,12 @@ Obj* allocate_object(size_t size, ObjType type)
 {
 	Obj* object = (Obj*) malloc(size);
 
+	if (object == NULL)
+	{
+		fprintf(stderr, "Critical memory allocation error");
+		exit(1);
+	}
+
 	object->type = type;
 	object->next = v.objects;
 	v.objects	 = object;
@@ -32,16 +39,16 @@ Obj* allocate_object(size_t size, ObjType type)
 	return object;
 }
 
-static haw_string* allocate_string(char* chars, int length, hash hash)
+static haw_string* allocate_string(hash hash, int length)
 {
 	haw_string* string =
-		allocate_obj_fam(sizeof(haw_string) + sizeof(char) * length, haw_string, OBJ_STRING);
+		allocate_obj_fam(sizeof(haw_string) + sizeof(char) * (length + 1), haw_string, OBJ_STRING);
 
 	string->length = length;
-	string->chars  = chars;
 	string->hash   = hash;
+	string->chars  = (char*) (string + 1);
 
-	table_set(&v.strings, string, (TValue) {.value_ = (Value) {.number_ = 0}, .type = HAW_TNONE});
+	table_set(&v.strings, string, v_void());
 
 	return string;
 }
@@ -56,10 +63,13 @@ haw_string* take_string(char* chars, int length)
 		return interned;
 	}
 
-	return allocate_string(chars, length, hash);
+	haw_string* string = allocate_string(length, hash);
+	string->chars	   = chars;
+
+	return string;
 }
 
-haw_string* copy_string(const char* chars, int length)
+haw_string* copy_string(char* chars, int length)
 {
 	hash		hash	 = hash_string(chars, length);
 	haw_string* interned = table_find_string(&v.strings, chars, length, hash);
@@ -69,18 +79,19 @@ haw_string* copy_string(const char* chars, int length)
 		return interned;
 	}
 
-	char* new_chars = allocate(char, length + 1);
+	haw_string* string = allocate_string(hash, length);
 
-	memcpy(new_chars, chars, length);
-	new_chars[length] = '\0';
+	memcpy(string->chars, chars, string->length);
+	endstring(string->chars, string->length);
 
-	return allocate_string(new_chars, length, hash);
+	return string;
 }
 
 haw_string* concatenate(haw_string* a, haw_string* b)
 {
-	int			length	   = a->length + b->length;
-	size_t		chars_size = sizeof(char) * (length + 1);
+	int	   length	  = a->length + b->length;
+	size_t chars_size = sizeof(char) * (length + 1);
+
 	haw_string* string =
 		allocate_obj_fam(sizeof(*string) + chars_size, haw_string, OBJ_STRING); // allocation
 
@@ -91,6 +102,18 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	memcpy(string->chars + a->length, b->chars, b->length); // copy
 
 	endstring(string->chars, length);
+
+	string->hash = hash_string(string->chars, string->length);
+
+	haw_string* interned =
+		table_find_string(&v.strings, string->chars, string->length, string->hash);
+
+	if (interned != NULL)
+	{
+		return interned;
+	}
+
+	table_set(&v.strings, string, v_void());
 
 	return string;
 }

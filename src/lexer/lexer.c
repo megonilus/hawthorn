@@ -178,7 +178,8 @@ static lexer_char keyword_or_name(this)
 
 	if (ch == 0)
 	{
-		ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length);
+		// ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length);
+		ls->seminfo->str_ = copy_string(ls->buffer.value, ls->buffer.length);
 		return TK_NAME;
 	}
 
@@ -345,7 +346,7 @@ static void read_string(this)
 	}
 
 	advance(ls); // "
-	ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length);
+	ls->seminfo->str_ = copy_string(ls->buffer.value, ls->buffer.length);
 }
 
 static lexer_char read_numeral(this)
@@ -453,6 +454,7 @@ Token lex(this)
 				{
 					advance(ls);
 				}
+				break;
 			}
 			else
 			{
@@ -512,7 +514,7 @@ Token lex(this)
 				error("Expected end of char");
 			}
 
-			ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length + 1);
+			ls->seminfo->str_ = copy_string(ls->buffer.value, ls->buffer.length);
 			result_tset(TK_CHAR);
 		case '0':
 		case '1':

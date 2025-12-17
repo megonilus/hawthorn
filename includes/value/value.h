@@ -66,6 +66,8 @@ typedef struct
 
 #define set_objtype(o, t) obj_value(o)->type = t
 
+#define v_void() ((TValue) {.type = HAW_TVOID})
+
 void print_value(const TValue* value);
 
 static inline haw_number val_to_num(const TValue* v)

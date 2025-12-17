@@ -36,6 +36,7 @@ void vm_init(Chunk* chunk)
 	v.objects = NULL;
 
 	table_init(&v.strings);
+	table_init(&v.globals);
 }
 
 size_t chunk_size()
@@ -52,6 +53,7 @@ void vm_execute()
 		uint8_t instruction = read_byte();
 		if (instruction == OP_HALT)
 		{
+			printf("\n");
 			return;
 		}
 
@@ -69,17 +71,45 @@ void vm_execute()
 			uint8_t	 mid   = read_byte();
 			uint8_t	 minor = read_byte();
 			uint32_t index = major | (uint32_t) mid << 8 | (uint32_t) minor << 16;
+
 			push(v.chunk->constants[index]);
 			break;
 		}
+
 		case OP_PRINT:
 		{
 			print_value(&pop());
-			printf("\n");
 			break;
 		}
 
-		// Binary Operators
+		case OP_SETGLOBAL:
+		{
+			TValue		var_value = pop();
+			haw_string* var_name  = string_value(&pop());
+
+			table_set(&v.globals, var_name, var_value);
+			break;
+		}
+
+		case OP_LOADGLOBAL:
+		{
+			haw_string* var_name = string_value(&pop());
+			TValue		var_value;
+
+			if (!table_get(&v.globals, var_name, &var_value))
+			{
+				error("Unknown variable");
+			}
+
+			push(var_value);
+			break;
+		}
+
+		case OP_POP:
+			pop();
+			break;
+
+			// Binary Operators
 #define macrostart()                                                                               \
 	TValue result;                                                                                 \
 	TValue b = pop();                                                                              \
@@ -124,7 +154,7 @@ void vm_execute()
 			if (t_isint(&a) && t_isint(&b))
 			{
 				result.type = HAW_TINT;
-				setivalue(&result, int_value(&a) % int_value(&b));
+				setivalue(&result, int_value(&a) * int_value(&b));
 			}
 			else if (t_isrational(&a) && t_isrational(&b))
 			{
@@ -150,16 +180,12 @@ void vm_execute()
 				haw_string* string = take_string(string_value(&a)->chars, len);
 
 				string->length = total;
-				string->chars  = (char*) (string + 1);
 
 				char* dest = string->chars;
 				for (int i = 0; i < count; i++)
 				{
-					if (len > 0)
-					{
-						memcpy(dest, string_value(&a)->chars, len);
-						dest += len;
-					}
+					memcpy(dest, string_value(&a)->chars, len);
+					dest += len;
 				}
 
 				string->chars[total] = '\0';
@@ -275,6 +301,7 @@ void vm_execute()
 		case OP_CONCAT:
 		{
 			macrostart();
+
 			result.type = HAW_TOBJECT;
 			setovalue(&result, concatenate(string_value(&a), string_value(&b)));
 			obj_type(&result) = OBJ_STRING;
@@ -296,7 +323,9 @@ void vm_destroy()
 	chunk_destroy(v.chunk);
 	free_objects();
 	array_free(v.stack);
+
 	table_destroy(&v.strings);
+	table_destroy(&v.globals);
 }
 
 #undef pop

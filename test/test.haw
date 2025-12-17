@@ -1,1 +1,4 @@
-print "1234" <> "5678"
+set variable = 10
+
+print "Variable * 10 = "
+print variable * 10

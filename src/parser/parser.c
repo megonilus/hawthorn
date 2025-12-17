@@ -3,6 +3,8 @@
 #include "value/obj.h"
 #include "value/value.h"
 
+#include <stdint.h>
+
 #undef this
 #include <chunk/chunk.h>
 #include <lexer/lexer.h>
@@ -21,6 +23,13 @@
 this;
 
 #define set_globalp(pa) p = pa
+
+// utilities
+
+#define expected(t) errorf("Expected %s", tok_2str(t))
+#define expecteds(m) errorf("Expected %s", m)
+
+#define seminf p.ls->seminfo
 
 static void next()
 {
@@ -44,24 +53,68 @@ static void consumef(TokenType type, cstr msg)
 	errorf("Expected %s, found %s", tok_2str(type), tok_2str(p.current.type));
 }
 
-static void consume(TokenType type, cstr msg)
+static void consume(TokenType type)
 {
 	if (p.current.type == type)
 	{
 		next();
 		return;
 	}
-	errorf("Expected %s %s", tok_2str(type), msg);
+
+	errorf("Expected %s", tok_2str(type));
+}
+
+static inline haw_string* parse_name(Token* token)
+{
+	if (token->type != TK_NAME)
+	{
+		errorf("Expected %s", tok_2str(TK_NAME));
+	}
+
+	return seminf->str_;
+}
+
+static inline int match(TokenType type)
+{
+	if (p.current.type == type)
+	{
+		next();
+		return 1;
+	}
+
+	return 0;
+}
+
+static inline int emit_void()
+{
+	return write_constant(&p.chunk, v_void());
+}
+
+static inline int name_constant(haw_string* string)
+{
+	TValue val;
+	val.type = HAW_TOBJECT;
+	setovalue(&val, take_string(string->chars, string->length));
+	obj_type(&val) = OBJ_STRING;
+
+	return write_constant(&p.chunk, val);
+}
+
+static inline void def_var()
+{
+	emit_byte(&p.chunk, OP_SETGLOBAL);
 }
 
 // Statements
 #define dstmt(s) static void s()
+dstmt(decl);
 dstmt(stmt);
-dstmt(vardecl);
+
+dstmt(vardeclstat);
 dstmt(printstat);
 
 // Expressions
-#define dexpr(s) static void s()
+#define dexpr(s) static void s(int can_assign)
 dexpr(expr);
 dexpr(binary);
 dexpr(unary);
@@ -70,20 +123,25 @@ dexpr(varexpr);
 dexpr(grouping);
 dexpr(postfix);
 
+static void expr_stmt();
+static void name(int can_assign);
+
 static void prec(Precedence prec);
 
 #define emptyrule(t) [t] = {NULL, NULL, PREC_NONE}
-#define onlyifunc(t, f) [t] = {NULL, f, PREC_NONE}
+
 #define onlypfunc(t, f) [t] = {f, NULL, PREC_NONE}
-#define fullrule(t, fi, fp, p) [t] = {fi, fp, p}
+#define onlyifunc(t, f) [t] = {NULL, f, PREC_NONE}
+
 #define rule(t, ...) [t] = {__VA_ARGS__}
 
 static ParseRule rules[] = {
 	// operators
 	// arithmetic
-	fullrule('+', unary, binary, PREC_TERM),
-	fullrule('-', unary, binary, PREC_TERM),
+	rule('+', unary, binary, PREC_TERM),
+	rule('-', unary, binary, PREC_TERM),
 	rule(TK_CONCAT, NULL, binary, PREC_TERM),
+
 	rule('*', NULL, binary, PREC_FACTOR),
 	rule('/', NULL, binary, PREC_FACTOR),
 	rule('^', NULL, binary, PREC_FACTOR),
@@ -103,6 +161,8 @@ static ParseRule rules[] = {
 	rule(TK_DEC, unary, postfix, PREC_UNARY),
 	rule('!', NULL, unary, PREC_UNARY),
 
+	onlypfunc(TK_NAME, name),
+
 	// symbols
 	onlypfunc('(', grouping),
 	emptyrule(')'),
@@ -110,8 +170,8 @@ static ParseRule rules[] = {
 	emptyrule('}'),
 	emptyrule(','),
 	emptyrule('.'),
-	emptyrule('='),
 	emptyrule(':'),
+	emptyrule('='),
 	// 2 char symbols
 	emptyrule(TK_FATARROW),
 	// keywords
@@ -131,7 +191,6 @@ static ParseRule rules[] = {
 	onlypfunc(TK_BOOL, literal),
 	onlypfunc(TK_VOID, literal),
 	// others
-	emptyrule(TK_NAME),
 	emptyrule(TK_EOF),
 };
 
@@ -146,20 +205,32 @@ static ParseRule rules[] = {
 #undef dexpr
 #undef dstmt
 
-#define expecteds(t) errorf("Expected %s", tok_2str(t))
-#define expected(m) errorf("Expected %s", m)
-
-#define seminf p.ls->seminfo
+static void decl()
+{
+	switch (p.current.type)
+	{
+	case TK_SET:
+		vardeclstat();
+		break;
+	case TK_NAME:
+		next();
+		name(1);
+		break;
+	default:
+		stmt();
+		break;
+	}
+}
 
 static void stmt()
 {
 	switch (p.current.type)
 	{
-		// TODO
 	case ';': // empty statement
 		next();
 		break;
 
+		// TODO
 	case TK_RETURN:
 	case TK_BREAK:
 	case TK_IF:
@@ -167,26 +238,55 @@ static void stmt()
 	case TK_WHILE:
 	case TK_FOR:
 	case TK_BIND:
-	case TK_SET:
 		next();
 		break;
 
 	case TK_PRINT:
 		printstat();
 		break;
+
 	default:
-		expected("statement");
+		expr_stmt();
+		break;
 	}
+}
+
+static void vardeclstat()
+{
+	next(); // skip `set`
+
+	haw_string* var_name = parse_name(&p.current);
+	name_constant(var_name);
+	next();
+	int init = match('=');
+
+	if (init)
+	{
+		expr(0);
+	}
+	else
+	{
+		emit_void();
+	}
+
+	def_var();
 }
 
 static void printstat()
 {
 	next();
-	expr();
+	expr(0);
 	emit_byte(&p.chunk, OP_PRINT);
 }
 
-static void expr()
+static void expr_stmt()
+{
+	expr(0);
+	emit_byte(&p.chunk, OP_POP); // TODO: implicit OP_RETURN
+}
+
+// Exprs
+static void expr(int can_assign)
 {
 	prec(PREC_ASSIGNMENT);
 }
@@ -199,22 +299,44 @@ static void prec(Precedence prec)
 	// so is not a literal(and not unary operator)
 	if (prefix == NULL)
 	{
-		expected("expression");
+		expecteds("expression");
 		return;
 	}
 
-	prefix();
+	int canAssign = prec <= PREC_ASSIGNMENT;
+	prefix(canAssign);
 
 	while (prec <= getrule(p.current.type)->precedence)
 	{
 		next();
 
 		ParseFn infix = getrule(p.previous.type)->infix;
-		infix();
+		infix(canAssign);
+	}
+
+	if (canAssign && match('='))
+	{
+		error("Invalid assignment target");
 	}
 }
 
-static void binary()
+static void name(int can_assign)
+{
+	haw_string* name = parse_name(&p.previous);
+	name_constant(name);
+
+	if (can_assign && match('='))
+	{
+		expr(0);
+		emit_byte(&p.chunk, OP_SETGLOBAL);
+	}
+	else
+	{
+		emit_byte(&p.chunk, OP_LOADGLOBAL);
+	}
+}
+
+static void binary(int can_assign)
 {
 	lexer_char op	= p.previous.type;
 	ParseRule* rule = getrule(op);
@@ -256,7 +378,7 @@ static void binary()
 	}
 }
 
-static void unary()
+static void unary(int can_assign)
 {
 	lexer_char op = p.previous.type;
 
@@ -295,7 +417,7 @@ static void unary()
 	}
 }
 
-static void postfix()
+static void postfix(int can_assign)
 {
 	lexer_char op = p.previous.type;
 
@@ -314,13 +436,13 @@ static void postfix()
 	}
 }
 
-static void grouping()
+static void grouping(int can_assign)
 {
-	expr();
-	consume(')', "after expression");
+	expr(can_assign);
+	consume(')');
 }
 
-static void literal()
+static void literal(int can_assign)
 {
 	TValue result;
 	switch (p.previous.type)
@@ -349,7 +471,7 @@ static void literal()
 
 		break;
 	default:
-		expected("expression");
+		expecteds("expression");
 	}
 
 	write_constant(&p.chunk, result);
@@ -372,7 +494,7 @@ void parse(str* filename)
 	lex_init(p.ls, filename, &seminfo);
 	next();
 
-	for (; p.current.type != TK_EOF; stmt())
+	for (; p.current.type != TK_EOF; decl())
 	{
 	}
 

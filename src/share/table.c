@@ -1,4 +1,5 @@
 #include "share/array.h"
+#include "type/type.h"
 #include "value/obj.h"
 #include "value/value.h"
 
@@ -12,26 +13,10 @@ static Entry* find_entry(Entry* entries, haw_string* key)
 {
 	hash index = key->hash % array_capacity(entries);
 
-	Entry* tombstone = NULL;
 	for (;;)
 	{
 		Entry* entry = &entries[index];
-		if (entry->key == NULL)
-		{
-			if (!t_isvalid(&entry->value))
-			{
-				return tombstone != NULL ? tombstone : entry;
-			}
-			else
-			{
-				if (tombstone == NULL)
-				{
-					tombstone = entry;
-				}
-			}
-		}
-
-		else if (entry->key == key)
+		if (entry->key == key || entry->key == NULL)
 		{
 			return entry;
 		}
@@ -57,13 +42,11 @@ static void adjust_capacity(Table* table, size_t new_capacity)
 		Entry* entry = &table->entries[i];
 		if (entry->key != NULL)
 		{
-			Entry* dest = find_entry(table->entries, entry->key);
+			Entry* dest = find_entry(new_entries, entry->key);
 			dest->key	= entry->key;
 			dest->value = entry->value;
 			array_incsize(new_entries);
 		}
-
-		table->entries[i] = *entry;
 	}
 
 	array_free(table->entries);
@@ -72,15 +55,14 @@ static void adjust_capacity(Table* table, size_t new_capacity)
 
 void table_set(Table* table, haw_string* key, TValue value)
 {
-	if (array_size(table->entries) + 1 < array_capacity(table->entries) * TABLE_MAX_LOAD)
+	if (array_size(table->entries) + 1 > array_capacity(table->entries) * TABLE_MAX_LOAD)
 	{
-		array_ensure(table->entries, 1, sizeof(Entry));
-		adjust_capacity(table, array_capacity(table->entries));
+		adjust_capacity(table, array_capacity(table->entries) * 2);
 	}
 
 	Entry* entry = find_entry(table->entries, key);
 
-	if (entry->key == NULL && !t_isvalid(&entry->value))
+	if (entry->key == NULL)
 	{
 		array_incsize(table->entries);
 	}
@@ -119,29 +101,17 @@ int table_get(Table* table, haw_string* key, TValue* value)
 	}
 
 	Entry* entry = find_entry(table->entries, key);
-	*value		 = entry->value;
 
-	return 1;
-}
-
-int table_delete(Table* table, haw_string* key)
-{
-	if (array_empty(table->entries))
+	if (entry->key == NULL || entry->key != key)
 	{
 		return 0;
 	}
 
-	Entry* entry = find_entry(table->entries, key);
-	if (entry->key == NULL)
-	{
-		return 0;
-	}
-
-	entry->key		  = NULL;
-	entry->value.type = HAW_TNONE;
+	*value = entry->value;
 
 	return 1;
 }
+
 haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash)
 {
 	if (array_empty(table->entries))
@@ -155,10 +125,7 @@ haw_string* table_find_string(Table* table, const char* chars, size_t length, ha
 		Entry* entry = &table->entries[index];
 		if (entry->key == NULL)
 		{
-			if (t_isvalid(&entry->value))
-			{
-				return NULL;
-			}
+			return NULL;
 		}
 		else if (entry->key->length == length && entry->key->hash == hash &&
 				 memcmp(entry->key->chars, chars, length) == 0)

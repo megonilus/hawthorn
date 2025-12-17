@@ -142,7 +142,7 @@ typedef enum : uint8_t
 	PREC_PRIMARY,
 } Precedence;
 
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(int can_assign);
 
 typedef struct
 {
