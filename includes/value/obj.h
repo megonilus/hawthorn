@@ -36,13 +36,13 @@ typedef struct ObjString haw_string;
 #define cast_string(o) cast(haw_string*, o)
 
 // work with strings
-haw_string* copy_string(char* chars, int length);
+haw_string* copy_string(char* chars, int length, int* constant_index);
 haw_string* concatenate(haw_string* a, haw_string* b);
-haw_string* take_string(char* chars, int length);
+haw_string* take_string(char* chars, int length, int* constant_index);
 
 // general use
-void free_objects();
-void free_object(Obj* obj);
+void objects_free();
+void object_free(Obj* obj);
 
 Obj* allocate_object(size_t size, ObjType type);
 

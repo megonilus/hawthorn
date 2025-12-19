@@ -1,4 +1,6 @@
 #include "chunk/opcodes.h"
+#include "interpreter/vm.h"
+#include "share/table.h"
 #include "type/type.h"
 #include "value/obj.h"
 #include "value/value.h"
@@ -29,7 +31,7 @@ this;
 #define expected(t) errorf("Expected %s", tok_2str(t))
 #define expecteds(m) errorf("Expected %s", m)
 
-#define seminf p.ls->seminfo
+#define seminf p.current.seminfo
 
 static void next()
 {
@@ -43,7 +45,7 @@ static void next()
 #endif
 }
 
-static void consumef(TokenType type, cstr msg)
+static inline void consumef(TokenType type, cstr msg)
 {
 	if (p.current.type == type)
 	{
@@ -53,7 +55,7 @@ static void consumef(TokenType type, cstr msg)
 	errorf("Expected %s, found %s", tok_2str(type), tok_2str(p.current.type));
 }
 
-static void consume(TokenType type)
+static inline void consume(TokenType type)
 {
 	if (p.current.type == type)
 	{
@@ -71,7 +73,7 @@ static inline haw_string* parse_name(Token* token)
 		errorf("Expected %s", tok_2str(TK_NAME));
 	}
 
-	return seminf->str_;
+	return token->seminfo.str_;
 }
 
 static inline int match(TokenType type)
@@ -90,20 +92,74 @@ static inline int emit_void()
 	return write_constant(&p.chunk, v_void());
 }
 
-static inline int name_constant(haw_string* string)
+static int string_constant(haw_string* string)
 {
-	TValue val;
-	val.type = HAW_TOBJECT;
-	setovalue(&val, take_string(string->chars, string->length));
+	TValue idx;
+	idx.type	   = HAW_TINT;
+	TValue val	   = v_str(string);
 	obj_type(&val) = OBJ_STRING;
 
-	return write_constant(&p.chunk, val);
+	haw_string* interned =
+		table_find_string(&v.strings, string->chars, string->length, string->hash, &idx);
+
+	if (interned != NULL && idx.type != HAW_TNONE)
+	{
+		return raw_write_constant(&p.chunk, int_value(&idx));
+	}
+
+	int index = write_constant(&p.chunk, val);
+
+	idx = v_int(index);
+
+	table_set(&v.strings, string, idx);
+
+	return index;
 }
 
-static inline void def_var()
+static int name_constant(haw_string* string)
 {
-	emit_byte(&p.chunk, OP_SETGLOBAL);
+	TValue idx;
+	idx.type = HAW_TINT;
+
+	haw_string* interned =
+		table_find_string(&v.strings, string->chars, string->length, string->hash, &idx);
+
+	if (interned != NULL && idx.type != HAW_TNONE)
+	{
+		return int_value(&idx);
+	}
+
+	TValue val	   = v_str(string);
+	obj_type(&val) = OBJ_STRING;
+
+	int index = add_constant(&p.chunk, val);
+
+	table_set(&v.strings, string, v_int(index));
+
+	return index;
 }
+
+static inline int compile_name(Token* token)
+{
+	haw_string* var_name = parse_name(token);
+	return name_constant(var_name);
+}
+
+static inline void var(int arg, OpCode opcode)
+{
+	if (arg <= UINT8_MAX)
+	{
+		emit_bytes(&p.chunk, opcode, arg);
+	}
+	else
+	{
+		to_u24(arg);
+		emit_bytes(&p.chunk, OP_WIDE, opcode, major, mid, minor);
+	}
+}
+
+#define def_var(a) var(a, OP_SETGLOBAL)
+#define load_var(a) var(a, OP_LOADGLOBAL)
 
 // Statements
 #define dstmt(s) static void s()
@@ -212,10 +268,6 @@ static void decl()
 	case TK_SET:
 		vardeclstat();
 		break;
-	case TK_NAME:
-		next();
-		name(1);
-		break;
 	default:
 		stmt();
 		break;
@@ -255,9 +307,9 @@ static void vardeclstat()
 {
 	next(); // skip `set`
 
-	haw_string* var_name = parse_name(&p.current);
-	name_constant(var_name);
+	int arg = compile_name(&p.current);
 	next();
+
 	int init = match('=');
 
 	if (init)
@@ -269,7 +321,8 @@ static void vardeclstat()
 		emit_void();
 	}
 
-	def_var();
+	def_var(arg);
+	emit_byte(&p.chunk, OP_POP);
 }
 
 static void printstat()
@@ -279,14 +332,14 @@ static void printstat()
 	emit_byte(&p.chunk, OP_PRINT);
 }
 
-static void expr_stmt()
+static inline void expr_stmt()
 {
-	expr(0);
+	expr(1);
 	emit_byte(&p.chunk, OP_POP); // TODO: implicit OP_RETURN
 }
 
 // Exprs
-static void expr(int can_assign)
+static inline void expr(int can_assign)
 {
 	prec(PREC_ASSIGNMENT);
 }
@@ -322,17 +375,17 @@ static void prec(Precedence prec)
 
 static void name(int can_assign)
 {
-	haw_string* name = parse_name(&p.previous);
-	name_constant(name);
+	int arg = compile_name(&p.previous);
 
 	if (can_assign && match('='))
 	{
-		expr(0);
-		emit_byte(&p.chunk, OP_SETGLOBAL);
+		expr(1);
+
+		def_var(arg);
 	}
 	else
 	{
-		emit_byte(&p.chunk, OP_LOADGLOBAL);
+		load_var(arg);
 	}
 }
 
@@ -395,17 +448,11 @@ static void unary(int can_assign)
 		emit_byte(&p.chunk, OP_NEG);
 		break;
 	case OPR_INC:
-		TValue val;
-		val.type = HAW_TINT;
-		setivalue(&val, 1);
-		write_constant(&p.chunk, val);
+		write_constant(&p.chunk, v_one());
 		emit_byte(&p.chunk, OP_ADD);
 		break;
 	case OPR_DEC:
-		TValue vala;
-		vala.type = HAW_TINT;
-		setivalue(&vala, 1);
-		write_constant(&p.chunk, vala);
+		write_constant(&p.chunk, v_one());
 		emit_byte(&p.chunk, OP_SUB);
 		break;
 	case OPR_NOT:
@@ -421,10 +468,7 @@ static void postfix(int can_assign)
 {
 	lexer_char op = p.previous.type;
 
-	TValue one;
-	one.type = HAW_TINT;
-	setivalue(&one, 1);
-	write_constant(&p.chunk, one);
+	write_constant(&p.chunk, v_one());
 
 	if (op == TK_INC)
 	{
@@ -448,25 +492,23 @@ static void literal(int can_assign)
 	switch (p.previous.type)
 	{
 	case TK_NUMBER:
-		setnvalue(&result, seminf->num_);
+		setnvalue(&result, p.previous.seminfo.num_);
 		result.type = HAW_TNUMBER;
 		break;
 	case TK_BOOL:
 	case TK_INT:
 		result.type = HAW_TINT;
-		setivalue(&result, seminf->int_);
+		setivalue(&result, p.previous.seminfo.int_);
 
 		break;
 	case TK_STRING:
-		haw_string* string = take_string(seminf->str_->chars, seminf->str_->length);
-		setovalue(&result, string);
+		haw_string* string =
+			take_string(p.previous.seminfo.str_->chars, p.previous.seminfo.str_->length, NULL);
 
-		result.type		  = HAW_TOBJECT;
-		obj_type(&result) = OBJ_STRING;
-
-		break;
+		string_constant(string);
+		return;
 	case TK_CHAR:
-		setivalue(&result, seminf->str_->chars[0]); // assign the 1st char
+		setivalue(&result, p.previous.seminfo.str_->chars[0]); // assign the 1st char
 		result.type = HAW_TINT;
 
 		break;

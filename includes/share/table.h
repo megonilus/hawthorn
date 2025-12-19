@@ -27,6 +27,7 @@ void table_destroy(Table* table);
 int table_get(Table* table, haw_string* key, TValue* value);
 int table_delete(Table* table, haw_string* key);
 
-haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash);
+haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash,
+							  TValue* write);
 
 #endif

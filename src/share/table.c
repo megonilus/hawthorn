@@ -71,12 +71,12 @@ void table_set(Table* table, haw_string* key, TValue value)
 	entry->value = value;
 }
 
-void table_init(Table* table)
+inline void table_init(Table* table)
 {
 	table->entries = array(Entry);
 }
 
-void table_destroy(Table* table)
+inline void table_destroy(Table* table)
 {
 	array_free(table->entries);
 }
@@ -112,8 +112,22 @@ int table_get(Table* table, haw_string* key, TValue* value)
 	return 1;
 }
 
-haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash)
+haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash,
+							  TValue* write)
 {
+#define writevalue(v)                                                                              \
+	if (write != NULL)                                                                             \
+	{                                                                                              \
+		if (entry->value.type != HAW_TVOID)                                                        \
+		{                                                                                          \
+			*write = v;                                                                            \
+		}                                                                                          \
+		else                                                                                       \
+		{                                                                                          \
+			write->type = HAW_TNONE;                                                               \
+		}                                                                                          \
+	}
+
 	if (array_empty(table->entries))
 	{
 		return NULL;
@@ -125,11 +139,13 @@ haw_string* table_find_string(Table* table, const char* chars, size_t length, ha
 		Entry* entry = &table->entries[index];
 		if (entry->key == NULL)
 		{
+			writevalue(v_mone());
 			return NULL;
 		}
 		else if (entry->key->length == length && entry->key->hash == hash &&
 				 memcmp(entry->key->chars, chars, length) == 0)
 		{
+			writevalue(entry->value);
 			return entry->key;
 		}
 

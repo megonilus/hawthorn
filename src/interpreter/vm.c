@@ -21,10 +21,28 @@
 
 vm v;
 
+#define constants (v.chunk->constants)
+#define code (v.chunk->code)
+
 #define pop() array_pop(v.stack, TValue)
 #define push(valu) array_push(v.stack, valu)
 
-#define read_byte() v.chunk->code[v.pc++]
+#define read_byte() code[v.pc++]
+
+#define read_u24()                                                                                 \
+	((v.pc += 3), (uint32_t) code[v.pc - 3] | ((uint32_t) code[v.pc - 2] << 8) |                   \
+					  ((uint32_t) code[v.pc - 1] << 16))
+
+#define read_wide()                                                                                \
+	if (wide)                                                                                      \
+	{                                                                                              \
+		index = read_u24();                                                                        \
+	}                                                                                              \
+	else                                                                                           \
+	{                                                                                              \
+		index = read_byte();                                                                       \
+	}                                                                                              \
+	wide = 0;
 
 #define wrongoperandsc(operand) errorf("Wrong operands to binary operator `%c`", operand)
 
@@ -41,60 +59,69 @@ void vm_init(Chunk* chunk)
 
 size_t chunk_size()
 {
-	size_t size = array_size(v.chunk->code);
+	size_t size = array_size(code);
 
 	return size;
 }
 
 void vm_execute()
 {
+	int index;
+	int wide = 0; // wide flag
+
 	for (;;)
 	{
 		uint8_t instruction = read_byte();
 		if (instruction == OP_HALT)
 		{
-			printf("\n");
 			return;
 		}
 
 		switch (instruction)
 		{
+		case OP_WIDE:
+		{
+			wide = 1;
+			continue;
+		}
+
 		case OP_CONSTANT:
 		{
-			uint8_t index = read_byte();
-			push(v.chunk->constants[index]);
+			index = read_byte();
+			push(constants[index]);
 			break;
 		}
 		case OP_CONSTANT_LONG:
 		{
-			uint8_t	 major = read_byte();
-			uint8_t	 mid   = read_byte();
-			uint8_t	 minor = read_byte();
-			uint32_t index = major | (uint32_t) mid << 8 | (uint32_t) minor << 16;
+			index = read_u24();
 
-			push(v.chunk->constants[index]);
+			push(constants[index]);
 			break;
 		}
 
 		case OP_PRINT:
 		{
 			print_value(&pop());
+			printf("\n");
 			break;
 		}
 
 		case OP_SETGLOBAL:
 		{
-			TValue		var_value = pop();
-			haw_string* var_name  = string_value(&pop());
+			TValue var_value = pop();
+			read_wide();
+			haw_string* var_name = string_value(&constants[index]);
 
 			table_set(&v.globals, var_name, var_value);
+			push(var_value);
 			break;
 		}
 
 		case OP_LOADGLOBAL:
 		{
-			haw_string* var_name = string_value(&pop());
-			TValue		var_value;
+			TValue var_value;
+			read_wide();
+			haw_string* var_name = string_value(&constants[index]);
 
 			if (!table_get(&v.globals, var_name, &var_value))
 			{
@@ -177,7 +204,7 @@ void vm_execute()
 
 				size_t chars_size = sizeof(char) * (total + 1);
 
-				haw_string* string = take_string(string_value(&a)->chars, len);
+				haw_string* string = take_string(string_value(&a)->chars, len, NULL);
 
 				string->length = total;
 
@@ -302,6 +329,11 @@ void vm_execute()
 		{
 			macrostart();
 
+			if (!t_isstring(&a) || !t_isstring(&b))
+			{
+				error("Wrong operands to concatenation operator");
+			}
+
 			result.type = HAW_TOBJECT;
 			setovalue(&result, concatenate(string_value(&a), string_value(&b)));
 			obj_type(&result) = OBJ_STRING;
@@ -315,17 +347,26 @@ void vm_execute()
 #undef macrostart
 #undef macroend
 		}
+
+		wide = 0;
 	}
 }
 
-void vm_destroy()
+inline void vm_destroy()
 {
-	chunk_destroy(v.chunk);
-	free_objects();
-	array_free(v.stack);
-
 	table_destroy(&v.strings);
 	table_destroy(&v.globals);
+
+	chunk_destroy(v.chunk);
+
+	if (!(array_empty(v.stack)))
+	{
+		printf("warning: stack is not empty at the end of runtime\n");
+	}
+
+	array_free(v.stack);
+
+	objects_free();
 }
 
 #undef pop

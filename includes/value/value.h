@@ -67,6 +67,12 @@ typedef struct
 #define set_objtype(o, t) obj_value(o)->type = t
 
 #define v_void() ((TValue) {.type = HAW_TVOID})
+#define v_int(i) ((TValue) {.type = HAW_TINT, .value_.int_ = i})
+#define v_zero() v_int(0)
+#define v_one() v_int(1)
+#define v_mone() v_int(-1)
+#define v_num(n) ((TValue) {.type = HAW_TNUMBER, .value_.num_ = n})
+#define v_str(s) ((TValue) {.type = HAW_TOBJECT, .value_.obj_ = cast_obj(s)})
 
 void print_value(const TValue* value);
 

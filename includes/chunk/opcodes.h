@@ -47,6 +47,8 @@ typedef enum
 
 	OP_POP,
 
+	OP_WIDE, // extends next op args
+
 	OP_HALT,
 } OpCode;
 
@@ -79,6 +81,7 @@ static const char* opnames[] = {
 	[OP_OR]			   = "OR",
 	[OP_CONCAT]		   = "CONCAT",
 	[OP_POP]		   = "POP",
+	[OP_WIDE]		   = "WIDE",
 };
 
 typedef enum

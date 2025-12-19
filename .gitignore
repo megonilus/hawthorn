@@ -9,3 +9,5 @@ flame.svg
 out.perf
 out.folded
 vgcore.*
+massif.*
+dhat.*

@@ -39,7 +39,7 @@ Obj* allocate_object(size_t size, ObjType type)
 	return object;
 }
 
-static haw_string* allocate_string(hash hash, int length)
+static haw_string* allocate_string(hash hash, int length, int* constant_index)
 {
 	haw_string* string =
 		allocate_obj_fam(sizeof(haw_string) + sizeof(char) * (length + 1), haw_string, OBJ_STRING);
@@ -48,38 +48,45 @@ static haw_string* allocate_string(hash hash, int length)
 	string->hash   = hash;
 	string->chars  = (char*) (string + 1);
 
-	table_set(&v.strings, string, v_void());
+	if (constant_index != NULL)
+	{
+		table_set(&v.strings, string, v_int(*constant_index));
+	}
+	else
+	{
+		table_set(&v.strings, string, v_void());
+	}
 
 	return string;
 }
 
-haw_string* take_string(char* chars, int length)
+haw_string* take_string(char* chars, int length, int* constant_index)
 {
 	hash		hash	 = hash_string(chars, length);
-	haw_string* interned = table_find_string(&v.strings, chars, length, hash);
+	haw_string* interned = table_find_string(&v.strings, chars, length, hash, NULL);
 
 	if (interned != NULL)
 	{
 		return interned;
 	}
 
-	haw_string* string = allocate_string(length, hash);
+	haw_string* string = allocate_string(length, hash, constant_index);
 	string->chars	   = chars;
 
 	return string;
 }
 
-haw_string* copy_string(char* chars, int length)
+haw_string* copy_string(char* chars, int length, int* constant_index)
 {
 	hash		hash	 = hash_string(chars, length);
-	haw_string* interned = table_find_string(&v.strings, chars, length, hash);
+	haw_string* interned = table_find_string(&v.strings, chars, length, hash, NULL);
 
 	if (interned != NULL)
 	{
 		return interned;
 	}
 
-	haw_string* string = allocate_string(hash, length);
+	haw_string* string = allocate_string(hash, length, constant_index);
 
 	memcpy(string->chars, chars, string->length);
 	endstring(string->chars, string->length);
@@ -106,7 +113,7 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	string->hash = hash_string(string->chars, string->length);
 
 	haw_string* interned =
-		table_find_string(&v.strings, string->chars, string->length, string->hash);
+		table_find_string(&v.strings, string->chars, string->length, string->hash, NULL);
 
 	if (interned != NULL)
 	{
@@ -118,7 +125,7 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	return string;
 }
 
-void free_object(Obj* obj)
+void object_free(Obj* obj)
 {
 	switch (obj->type)
 	{
@@ -130,14 +137,14 @@ void free_object(Obj* obj)
 	}
 }
 
-void free_objects()
+void objects_free()
 {
 	Obj* object = v.objects;
 
 	while (object != NULL)
 	{
 		Obj* next = object->next;
-		free_object(object);
+		object_free(object);
 		object = next;
 	}
 }

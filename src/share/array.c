@@ -13,7 +13,7 @@ void* array_init(size_t item_size, size_t capacity)
 	void* ptr = 0;
 	// needed size of the array
 	size_t		 size	= (item_size * capacity) + sizeof(ArrayHeader);
-	ArrayHeader* header = malloc(size);
+	ArrayHeader* header = calloc(size, size);
 
 	if (header)
 	{
@@ -56,16 +56,6 @@ void* array_ensure_capacity(void* array, size_t item_count, size_t item_size)
 	return header + 1;
 }
 
-void array_pop_back(void* array)
-{
-	ArrayHeader* header = array_header(array);
-
-	if (array_empty(array))
-	{
-		error("array underflow");
-	}
-}
-
 inline void array_free(void* array)
 {
 	free(array_header(array));
@@ -87,4 +77,23 @@ void* array_res(void* array, size_t n, size_t item_size)
 	header->capacity = new_capacity;
 
 	return header + 1;
+}
+
+inline void* array_get(void* array, size_t index)
+{
+	if (index < 0 || index >= array_size(array))
+	{
+		errorf("Tried to get value with index %zu in array with size %zu", index,
+			   array_size(array));
+	}
+
+	return &array[index];
+}
+
+void array_print(void* array, PrintFunction print)
+{
+	for (int i = 0; i < array_size(array); i++)
+	{
+		print(&array[i]);
+	}
 }
