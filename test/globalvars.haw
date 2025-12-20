@@ -1,0 +1,16 @@
+set abc = 10
+set abc2
+
+abc2 = abc = 100
+
+print abc  \\ 100
+print abc2 \\ 100
+
+abc = "somestring"
+
+print abc == "somestring" \\ 1
+print abc2 \\ 100
+print abc * abc2
+
+
+

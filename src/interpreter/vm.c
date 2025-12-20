@@ -191,8 +191,9 @@ void vm_execute()
 
 			else if (t_isstring(&a) && t_isint(&b))
 			{
-				result.type = HAW_TOBJECT;
-				int count	= int_value(&b);
+				haw_string* toadd = string_value(&a);
+				result.type		  = HAW_TOBJECT;
+				int count		  = int_value(&b);
 
 				if (count < 1)
 				{
@@ -203,19 +204,16 @@ void vm_execute()
 				int total = len * count;
 
 				size_t chars_size = sizeof(char) * (total + 1);
+				char*  new_chars  = (char*) malloc(chars_size);
 
-				haw_string* string = take_string(string_value(&a)->chars, len, NULL);
-
-				string->length = total;
-
-				char* dest = string->chars;
 				for (int i = 0; i < count; i++)
 				{
-					memcpy(dest, string_value(&a)->chars, len);
-					dest += len;
+					memcpy(new_chars + (i * len), toadd->chars, len);
 				}
+				new_chars[total] = '\0';
 
-				string->chars[total] = '\0';
+				haw_string* string = take_string(new_chars, total, NULL);
+				string->length	   = total;
 
 				setovalue(&result, string);
 				obj_type(&result) = OBJ_STRING;
