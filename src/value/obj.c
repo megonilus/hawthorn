@@ -71,7 +71,8 @@ haw_string* take_string(char* chars, int length, int* constant_index)
 	}
 
 	haw_string* string = allocate_string(hash, length, constant_index);
-	memmove(string->chars, chars, length);
+	string->chars	   = chars;
+	endstring(string->chars, string->length);
 
 	return string;
 }
@@ -131,7 +132,15 @@ void object_free(Obj* obj)
 	{
 	case OBJ_STRING:
 		haw_string* string = cast_string(obj);
-		free(string);
+		if (string->chars == (char*) (string + 1))
+		{
+			free(string);
+		}
+		else
+		{
+			free(string->chars);
+			free(string);
+		}
 
 		break;
 	}

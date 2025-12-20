@@ -215,7 +215,7 @@ static ParseRule rules[] = {
 	// unary
 	rule(TK_INC, unary, postfix, PREC_UNARY),
 	rule(TK_DEC, unary, postfix, PREC_UNARY),
-	rule('!', NULL, unary, PREC_UNARY),
+	rule('!', unary, NULL, PREC_UNARY),
 
 	onlypfunc(TK_NAME, name),
 
@@ -458,7 +458,6 @@ static void unary(int can_assign)
 	case OPR_NOT:
 		emit_byte(&p.chunk, OP_NOT);
 		break;
-
 	default:
 		unreachable();
 	}
@@ -510,7 +509,6 @@ static void literal(int can_assign)
 	case TK_CHAR:
 		setivalue(&result, p.previous.seminfo.str_->chars[0]); // assign the 1st char
 		result.type = HAW_TINT;
-
 		break;
 	default:
 		expecteds("expression");

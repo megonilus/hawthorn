@@ -316,7 +316,7 @@ void vm_execute()
 	{                                                                                              \
 		macrostart();                                                                              \
 		result.type = HAW_TINT;                                                                    \
-		setivalue(&result, t_istruth(&a) op t_istruth(&b));                                        \
+		setivalue(&result, v_istruth(&a) op v_istruth(&b));                                        \
                                                                                                    \
 		macroend();                                                                                \
 	}
@@ -339,6 +339,32 @@ void vm_execute()
 			obj_type(&result) = OBJ_STRING;
 
 			macroend();
+		}
+
+		case OP_NEG:
+		{
+			TValue a = pop();
+
+			switch (a.type)
+			{
+			case HAW_TINT:
+				push(v_int(-int_value(&a)));
+				break;
+			case HAW_TNUMBER:
+				push(v_num(-number_value(&a)));
+				break;
+			default:
+				error("Expected number or integer");
+			}
+			break;
+		}
+
+		case OP_NOT:
+		{
+			TValue a = pop();
+
+			push(v_int(!v_istruth(&a)));
+			break;
 		}
 
 #undef binopr
