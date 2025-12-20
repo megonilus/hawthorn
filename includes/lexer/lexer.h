@@ -9,25 +9,24 @@
 
 typedef int lexer_char;
 
-/// State of the scanner plus state of the parser when shared by all functions
 typedef struct
 {
-	// LEXER
-	Buffer	   file_contents;
+	flags_t flags;
+	Buffer	file_contents;
+
 	lexer_char current;
 	lexer_size line_number;
-	String	   buffer;
-	str*	   source_name;
-	SemInfo*   seminfo;
-} LexState;
 
-// specify to print or not token which is currently being processed
-#define SLS_DEBUGL 1
+	String buffer;
+
+	cstr	 source_name;
+	SemInfo* seminfo;
+} LexState;
 
 #undef this
 #define this LexState* ls
 
-void lex_init(this, str* source_name, SemInfo* seminfo);
+void lex_init(this, cstr source_name, SemInfo* seminfo, flags_t flags);
 void lex_destroy(this);
 
 Token lex(this);

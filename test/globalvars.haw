@@ -8,8 +8,10 @@ print abc2 \\ 100
 
 abc = "somestring"
 
+abc2 = 10
+
 print abc == "somestring" \\ 1
-print abc2 \\ 100
+print abc2 \\ 10
 print abc * abc2
 
 

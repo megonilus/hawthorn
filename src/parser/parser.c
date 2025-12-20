@@ -1,5 +1,6 @@
 #include "chunk/opcodes.h"
 #include "interpreter/vm.h"
+#include "share/hawthorn.h"
 #include "share/table.h"
 #include "type/type.h"
 #include "value/obj.h"
@@ -33,16 +34,15 @@ this;
 
 #define seminf p.current.seminfo
 
-static void next()
+static inline void next()
 {
 	p.previous = p.current;
 	p.current  = lex(p.ls);
-#if SLS_DEBUGL
-	if (p.current.type != TK_EOF)
+
+	if (getflag(p.flags, DBG_LEXER) && p.current.type != TK_EOF)
 	{
 		dislex(p.ls, p.current.type);
 	}
-#endif
 }
 
 static inline void consumef(TokenType type, cstr msg)
@@ -52,7 +52,9 @@ static inline void consumef(TokenType type, cstr msg)
 		next();
 		return;
 	}
-	errorf("Expected %s, found %s", tok_2str(type), tok_2str(p.current.type));
+
+	errorf("Expected %s, found %s", tok_2str(type),
+		   tok_2str(p.current.type));
 }
 
 static inline void consume(TokenType type)
@@ -99,8 +101,8 @@ static int string_constant(haw_string* string)
 	TValue val	   = v_str(string);
 	obj_type(&val) = OBJ_STRING;
 
-	haw_string* interned =
-		table_find_string(&v.strings, string->chars, string->length, string->hash, &idx);
+	haw_string* interned = table_find_string(
+		&v.strings, string->chars, string->length, string->hash, &idx);
 
 	if (interned != NULL && idx.type != HAW_TNONE)
 	{
@@ -121,8 +123,8 @@ static int name_constant(haw_string* string)
 	TValue idx;
 	idx.type = HAW_TINT;
 
-	haw_string* interned =
-		table_find_string(&v.strings, string->chars, string->length, string->hash, &idx);
+	haw_string* interned = table_find_string(
+		&v.strings, string->chars, string->length, string->hash, &idx);
 
 	if (interned != NULL && idx.type != HAW_TNONE)
 	{
@@ -278,7 +280,7 @@ static void stmt()
 {
 	switch (p.current.type)
 	{
-	case ';': // empty statement
+	case ';':	// empty statement
 		next();
 		break;
 
@@ -305,7 +307,7 @@ static void stmt()
 
 static void vardeclstat()
 {
-	next(); // skip `set`
+	next();	  // skip `set`
 
 	int arg = compile_name(&p.current);
 	next();
@@ -335,7 +337,7 @@ static void printstat()
 static inline void expr_stmt()
 {
 	expr(1);
-	emit_byte(&p.chunk, OP_POP); // TODO: implicit OP_RETURN
+	emit_byte(&p.chunk, OP_POP);   // TODO: implicit OP_RETURN
 }
 
 // Exprs
@@ -346,7 +348,7 @@ static inline void expr(int can_assign)
 
 static void prec(Precedence prec)
 {
-	next(); // skips 1 in 1 + 1
+	next();	  // skips 1 in 1 + 1
 	ParseFn prefix = getrule(p.previous.type)->prefix;
 
 	// so is not a literal(and not unary operator)
@@ -398,9 +400,9 @@ static void binary(int can_assign)
 
 	switch (getbinopr(op))
 	{
-#define oper(OP, B)                                                                                \
-	case OP:                                                                                       \
-		emit_byte(&p.chunk, B);                                                                    \
+#define oper(OP, B)                                                       \
+	case OP:                                                              \
+		emit_byte(&p.chunk, B);                                           \
 		break;
 
 		// arithmetic
@@ -502,12 +504,15 @@ static void literal(int can_assign)
 		break;
 	case TK_STRING:
 		haw_string* string =
-			take_string(p.previous.seminfo.str_->chars, p.previous.seminfo.str_->length, NULL);
+			take_string(p.previous.seminfo.str_->chars,
+						p.previous.seminfo.str_->length, NULL);
 
 		string_constant(string);
 		return;
 	case TK_CHAR:
-		setivalue(&result, p.previous.seminfo.str_->chars[0]); // assign the 1st char
+		setivalue(
+			&result,
+			p.previous.seminfo.str_->chars[0]);	  // assign the 1st char
 		result.type = HAW_TINT;
 		break;
 	default:
@@ -517,33 +522,44 @@ static void literal(int can_assign)
 	write_constant(&p.chunk, result);
 }
 
-void parser_init(Parser* p, LexState* sls)
+void parser_init(Parser* p, LexState* sls, flags_t flags)
 {
 	p->ls		   = sls;
 	p->scopes_deep = 0;
+	p->flags	   = flags;
 
 	chunk_init(&p->chunk);
-	p->vars = array(VarDesc);
 }
 
 #define halt() emit_byte(&p.chunk, OP_HALT)
 
-void parse(str* filename)
+void parse(cstr filename)
 {
 	SemInfo seminfo;
-	lex_init(p.ls, filename, &seminfo);
+	int		lexer = getflag(p.flags, DBG_LEXER);
+	lex_init(p.ls, filename, &seminfo, p.flags);
+
+	if (lexer)
+	{
+		printf("-- Lexemes");
+	}
+
 	next();
 
 	for (; p.current.type != TK_EOF; decl())
 	{
 	}
 
-	printf("\n");
-#if SLS_DEBUGL
-	printf("\n"); // END debug seq
-#endif
+	if (lexer)
+	{
+		printf("\n\n");
+	}
 
-	disassemble(&p.chunk);
+	if (getflag(p.flags, DBG_DISASM))
+	{
+		disassemble(&p.chunk);
+	}
+
 	halt();
 
 	lex_destroy(p.ls);
@@ -552,7 +568,6 @@ void parse(str* filename)
 void parser_destroy(Parser* p)
 {
 	lex_destroy(p->ls);
-	array_free(p->vars);
 }
 
 #undef this

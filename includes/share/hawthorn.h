@@ -1,6 +1,8 @@
 #ifndef hawthorn_h
 #define hawthorn_h
 
+#include <stdint.h>
+
 #define HAW_VERSION "0.0.1"
 #define HAW_AUTHOR "megonilus"
 
@@ -18,6 +20,18 @@ typedef enum
 	THREAD_ERRMEM,
 	THREAD_ERRERR
 } ThreadStatus;
+
+typedef uint8_t flags_t;
+
+typedef enum : flags_t
+{
+	DBG_DISASM,
+	DBG_LEXER,
+} Flags;
+
+#define setflag(f) flags = (1 << f) | flags
+#define unsetflag(f) flags = flags & (~(1 << f))
+#define getflag(fls, f) (fls >> f) & 1
 
 #if !defined(HAWI_FUNC)
 #if defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 302) &&                             \

@@ -1,3 +1,3 @@
 add_library(hawthorn_lexer STATIC lexer.c)
 target_include_directories(hawthorn_lexer PUBLIC "${DEFAULT_INCLUDE_DIR}")
-target_link_libraries(hawthorn_lexer PRIVATE hawthorn_obj)
+target_link_libraries(hawthorn_lexer PRIVATE megonil_string hawthorn_obj)

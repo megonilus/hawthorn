@@ -378,13 +378,14 @@ static lexer_char read_numeral(this)
 	}
 }
 
-void lex_init(this, str* source_name, SemInfo* seminfo)
+void lex_init(this, cstr source_name, SemInfo* seminfo, flags_t flags)
 {
 	ls->source_name = source_name;
 	ls->seminfo		= seminfo;
+	ls->flags		= flags;
 
 	buffer_init(&ls->file_contents);
-	buffer_readfile(&ls->file_contents, source_name->value);
+	buffer_readfile(&ls->file_contents, source_name);
 
 	advance(ls);
 	String_init(&ls->buffer);
