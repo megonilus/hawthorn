@@ -1,8 +1,8 @@
 build/
 .cache/
-test/test2.haw
 
 # Profiling
+# and some other dumps
 perf.data
 perf.data.old
 flame.svg
@@ -11,3 +11,4 @@ out.folded
 vgcore.*
 massif.*
 dhat.*
+*.atrace

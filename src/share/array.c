@@ -13,7 +13,7 @@ void* array_init(size_t item_size, size_t capacity)
 	void* ptr = 0;
 	// needed size of the array
 	size_t		 size	= (item_size * capacity) + sizeof(ArrayHeader);
-	ArrayHeader* header = calloc(size, size);
+	ArrayHeader* header = calloc(1, size);
 
 	if (header)
 	{
@@ -42,14 +42,15 @@ void* array_ensure_capacity(void* array, size_t item_count, size_t item_size)
 	// and reallocate
 	if (header->capacity < needed_capacity)
 	{
-		size_t new_capacity = header->capacity * 2;
+		size_t new_capacity = header->capacity == 0 ? 8 : header->capacity * 2;
 
 		while (new_capacity <= needed_capacity)
 		{
 			new_capacity *= 2;
 		}
 
-		header = realloc(header, sizeof(ArrayHeader) + new_capacity * item_size);
+		header			 = realloc(header, sizeof(ArrayHeader) + new_capacity * item_size);
+		header->capacity = new_capacity;
 	}
 
 	// array starts in front of header

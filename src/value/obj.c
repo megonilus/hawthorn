@@ -28,8 +28,8 @@ Obj* allocate_object(size_t size, ObjType type)
 
 	if (object == NULL)
 	{
-		fprintf(stderr, "Critical memory allocation error");
-		exit(1);
+		fprintf(stderr, "Critical memory allocation error! obj.c\n");
+		exit(EXIT_FAILURE);
 	}
 
 	object->type = type;
@@ -70,8 +70,8 @@ haw_string* take_string(char* chars, int length, int* constant_index)
 		return interned;
 	}
 
-	haw_string* string = allocate_string(length, hash, constant_index);
-	string->chars	   = chars;
+	haw_string* string = allocate_string(hash, length, constant_index);
+	memmove(string->chars, chars, length);
 
 	return string;
 }
