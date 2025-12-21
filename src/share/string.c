@@ -1,9 +1,7 @@
-#include "share/array.h"
 #include "share/error.h"
 
 #include <share/string.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -87,7 +85,8 @@ void String_init(String* string)
 
 void String_append(String* string, cstr append_str)
 {
-	str_size append_size	 = strlen(append_str) + 1; // \0 for string.h compat
+	str_size append_size =
+		strlen(append_str) + 1;	  // \0 for string.h compat
 	str_size needed_capacity = string->length + append_size;
 
 	if (string->capacity < needed_capacity)
@@ -113,7 +112,8 @@ void String_appendc(String* string, char c)
 {
 	if (string->length + 1 >= string->capacity)
 	{
-		if (string->capacity == 0) string->capacity = 8;
+		if (string->capacity == 0)
+			string->capacity = 8;
 
 		string->capacity *= CAP_MULTIPLIER;
 
@@ -146,51 +146,6 @@ void String_clear(String* string)
 	{
 		string->value[0] = '\0';
 	}
-}
-
-void buffer_init(Buffer* buffer)
-{
-	buffer->value = array(char);
-	buffer->n	  = 0;
-}
-
-void buffer_readfile(Buffer* b, cstr filename)
-{
-	FILE* file = fopen(filename, "rb");
-
-	if (file == NULL)
-	{
-		error("Could not open file");
-	}
-
-	fseek(file, 0L, SEEK_END);
-	size_t file_size = ftell(file);
-
-	array_reserve(b->value, file_size + 1, char);
-
-	rewind(file);
-
-	size_t bytes_read = fread(b->value, sizeof(char), file_size, file);
-
-	if (bytes_read < file_size)
-	{
-		errorf("Could not open file %s", filename);
-	}
-
-	fclose(file);
-	b->value[file_size]			 = '\0';
-	array_header(b->value)->size = file_size + 1;
-}
-
-void buffer_destroy(Buffer* b)
-{
-	if (b->value != NULL)
-	{
-		array_free(b->value);
-	}
-
-	b->value = NULL;
-	b->n	 = 0;
 }
 
 cstr_mut String_take_value(String* string)

@@ -55,6 +55,14 @@ static void constant_instruction(Chunk* chunk, int* offset)
 	(*offset) += 2;
 }
 
+static void slot_instruction(Chunk* chunk, int* offset)
+{
+	printf("%04d %s %u\n", *offset, op_name(chunk->code[*offset]),
+		   chunk->code[*offset + 1]);
+
+	*offset += 2;
+}
+
 static void constantlong_instruction(Chunk* chunk, int* offset)
 {
 	uint32_t index =
@@ -118,7 +126,7 @@ void disassemble(Chunk* chunk)
 
 	printf("\n");
 
-	int wide;
+	int wide = 0;
 
 	for (int offset = 0; offset < array_size(chunk->code);)
 	{
@@ -135,10 +143,12 @@ void disassemble(Chunk* chunk)
 			simple_instruction(chunk->code[offset], &offset);
 			continue;
 		case OP_SETGLOBAL:
-		case OP_SETLOCAL:
-		case OP_LOADLOCAL:
 		case OP_LOADGLOBAL:
 			onearg_instruction(chunk, &offset, wide);
+			break;
+		case OP_SETLOCAL:
+		case OP_LOADLOCAL:
+			slot_instruction(chunk, &offset);
 			break;
 		default:
 			simple_instruction(chunk->code[offset], &offset);
@@ -173,4 +183,9 @@ uint32_t raw_write_constant(Chunk* chunk, uint32_t index)
 inline uint32_t write_constant(Chunk* chunk, Constant data)
 {
 	return raw_write_constant(chunk, add_constant(chunk, data));
+}
+
+inline void chunk_clear(Chunk* chunk)
+{
+	array_size(chunk->code) = 0;
 }

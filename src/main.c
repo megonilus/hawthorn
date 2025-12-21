@@ -2,16 +2,19 @@
 #include "share/hawthorn.h"
 
 #include <assert.h>
-#include <interpreter/repl.h>
 #include <interpreter/vm.h>
 #include <lexer/lexer.h>
 #include <parser/parser.h>
+#include <setjmp.h>
 #include <share/string.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdnoreturn.h>
 #include <unistd.h>
+
+flags_t flags = 0;
 
 def_parser();
 
@@ -22,10 +25,9 @@ static noret usage()
 	exit(0);
 }
 
-static flags_t getflags(int argc, char* argv[])
+static void getflags(int argc, char* argv[])
 {
-	flags_t flags = 0;
-	char	c;
+	char c;
 
 	while ((c = getopt(argc, argv, "d::l::s::")) != -1)
 	{
@@ -45,37 +47,125 @@ static flags_t getflags(int argc, char* argv[])
 			break;
 		}
 	}
-
-	return flags;
 }
 
-void run_file(cstr filename, flags_t flags)
+cstr readfile(cstr filename)
 {
-	LexState ls;
+	FILE* file = fopen(filename, "rb");
 
+	if (file == NULL)
+	{
+		fprintf(stderr, "Could not open file");
+		exit(1);
+	}
+
+	fseek(file, 0L, SEEK_END);
+	size_t file_size = ftell(file);
+
+	char* value = (char*) malloc(sizeof(char) * file_size);
+
+	rewind(file);
+
+	size_t bytes_read = fread(value, sizeof(char), file_size, file);
+
+	if (bytes_read < file_size)
+	{
+		fprintf(stderr, "Could not open file");
+		exit(1);
+	}
+
+	fclose(file);
+	value[file_size] = '\0';
+
+	return value;
+}
+
+static void run(cstr code)
+{
 	vm_init(&p.chunk);
-	parser_init(&p, &ls, flags);
-	parse(filename);
+	parser_init(&p);
+	parse(code);
 
 	if (!getflag(flags, SKIP_RUN))
 	{
 		vm_execute();
 	}
 
-	parser_destroy(&p);
 	vm_destroy();
 }
 
+static inline void run_file(cstr filename)
+{
+	run(readfile(filename));
+}
+
+static volatile int repl_running = 1;
+
+static void stop_repl(int a)
+{
+	repl_running = 0;
+	exit(0);
+}
+
+#define BUFFER_SIZE 128
+
+extern jmp_buf repl_panic;
+
+static void repl_cycle()
+{
+	// set repl on the track
+	setflag(REPL);
+	signal(SIGINT, stop_repl);
+	parser_init(&p);
+	vm_init(&p.chunk);
+
+	char buffer[BUFFER_SIZE];
+	printf("%s %s by %s\n\n", HAW_INTERP_NAME, HAW_VERSION, HAW_AUTHOR);
+
+	while (repl_running)
+	{
+		if (setjmp(repl_panic) != 0)
+		{
+			printf("\033[31;1;4m[!]\033[0m Error received.\n");
+
+			v.pc = 0;	// reset program counter
+			parser_clean(&p);
+		}
+		printf("\033[36;1;4m[>]\033[0m ");
+
+		if (fgets(buffer, BUFFER_SIZE, stdin) == NULL)
+		{
+			break;
+		}
+
+		parse(buffer);
+
+		if (!getflag(flags, SKIP_RUN))
+		{
+			vm_execute();
+		}
+
+		parser_clean(&p);
+	}
+
+	// clean up the mess
+	vm_destroy();
+}
+
+#undef BUFFER_SIZE
+
 int main(int argc, char* argv[])
 {
-	if (argc == 1)
+	getflags(argc, argv);
+
+	if (optind >= argc)
 	{
 		repl_cycle();
 	}
 
-	else if (argc >= 2)
+	else
 	{
-		cstr filename = argv[1];
+		cstr filename = argv[optind];
 
 		if (access(filename, F_OK) != 0)
 		{
@@ -84,7 +174,7 @@ int main(int argc, char* argv[])
 			exit(1);
 		}
 
-		run_file(filename, getflags(argc, argv));
+		run_file(filename);
 	}
 
 	return 0;

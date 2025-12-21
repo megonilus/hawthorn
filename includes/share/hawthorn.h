@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#define HAW_INTERP_NAME "hawthorn"
 #define HAW_VERSION "0.0.1"
 #define HAW_AUTHOR "megonilus"
 
@@ -28,6 +29,7 @@ typedef enum : flags_t
 	DBG_DISASM,
 	DBG_LEXER,
 	SKIP_RUN,
+	REPL,
 } Flags;
 
 #define setflag(f) flags = (1 << f) | flags
@@ -41,6 +43,8 @@ typedef enum : flags_t
 #else
 #define HAWI_FUNC extern
 #endif
+
+HAWI_FUNC flags_t flags;
 
 #define INT_BITS 32
 #endif

@@ -1,8 +1,6 @@
 #ifndef megonil_string
 #define megonil_string
 
-#include "share/array.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -28,9 +26,9 @@ typedef struct
 
 str make_str(cstr_mut c_string);
 
-#define STR_EQ 1  // result value when strings are equal
-#define STR_NEQ 0 // result value when string are not equal
-#define STR_DL -1 // result value when string have different lengths
+#define STR_EQ 1	// result value when strings are equal
+#define STR_NEQ 0	// result value when string are not equal
+#define STR_DL -1	// result value when string have different lengths
 
 int8_t str_eq(this, const this_t* other_str);
 
@@ -53,30 +51,12 @@ void String_appendc(String* string, char c);
 void String_destroy(String* string);
 void String_clear(String* string);
 
+cstr_mut String_take_value(String* string);
+
 #define String_print(string) printf("%s", string->value)
 #define String_printd(string) printf("(\"%s\") ", string->value)
 #define String_eq(str1, str2) (strcmp(str1->value, str2->value) == 0)
 
-typedef struct
-{
-	int	  n;	 // idx
-	char* value; // array
-} Buffer;
-
-void buffer_init(Buffer* b);
-void buffer_readfile(Buffer* b, cstr filename);
-char buffer_read(Buffer* b);
-
-#define buffer_len(b) array_size(b.value)
-#define buffer_cap(b) array_capacity(b.value)
-
-#define buffer_read(b) b.value[b.n]
-#define buffer_readnext(b) b.value[b.n++]
-
-void buffer_destroy(Buffer* b);
-
-cstr_mut String_take_value(String* string);
-
 #undef this
 #undef this_t
-#endif // !megonil_string
+#endif	 // !megonil_string

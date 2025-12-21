@@ -22,8 +22,6 @@ typedef struct
 
 typedef struct
 {
-	flags_t flags;
-
 	Chunk  chunk;
 	Scopes scopes;
 
@@ -36,9 +34,8 @@ typedef struct
 #define this Parser p
 
 void parse(cstr filename);
-void parser_init(Parser* p, LexState* sls, flags_t flags);
-
-void parser_destroy(Parser* p);
+void parser_init(Parser* p);
+void parser_clean(Parser* p);
 
 typedef enum : uint8_t
 {

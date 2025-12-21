@@ -46,7 +46,7 @@ static inline void next()
 	p.previous = p.current;
 	p.current  = lex(p.ls);
 
-	if (getflag(p.flags, DBG_LEXER) && p.current.type != TK_EOF)
+	if (getflag(flags, DBG_LEXER) && p.current.type != TK_EOF)
 	{
 		dislex(p.ls, p.current.type);
 	}
@@ -443,7 +443,14 @@ static inline void scopestat()
 static inline void expr_stmt()
 {
 	expr(1);
-	pop();	 // TODO: implicit OP_RETURN
+	if (getflag(flags, REPL))
+	{
+		emit_byte(&p.chunk, OP_PRINT);
+	}
+	else
+	{
+		pop();	 // TODO: implicit OP_RETURN
+	}
 }
 
 // Exprs
@@ -663,25 +670,32 @@ static void literal(int can_assign)
 	write_constant(&p.chunk, result);
 }
 
-void parser_init(Parser* p, LexState* sls, flags_t flags)
+void parser_init(Parser* p)
 {
-	p->ls				  = sls;
 	p->scopes.scopes_deep = 0;
 	p->scopes.local_count = 0;
-	p->flags			  = flags;
 
 	chunk_init(&p->chunk);
 }
 
-void parse(cstr filename)
+inline void parser_clean(Parser* p)
 {
-	SemInfo seminfo;
-	int		lexer = getflag(p.flags, DBG_LEXER);
-	lex_init(p.ls, filename, &seminfo, p.flags);
+	chunk_clear(&p->chunk);
+	p->scopes.scopes_deep = 0;
+}
 
-	if (lexer)
+void parse(cstr source)
+{
+	LexState ls;
+	p.ls = &ls;
+
+	SemInfo seminfo;
+	int		printlexems = getflag(flags, DBG_LEXER);
+	lex_init(p.ls, source, &seminfo);
+
+	if (printlexems)
 	{
-		printf("-- Lexemes");
+		printf("-- Lexemes\n");
 	}
 
 	next();
@@ -690,12 +704,12 @@ void parse(cstr filename)
 	{
 	}
 
-	if (lexer)
+	if (printlexems)
 	{
 		printf("\n\n");
 	}
 
-	if (getflag(p.flags, DBG_DISASM))
+	if (getflag(flags, DBG_DISASM))
 	{
 		disassemble(&p.chunk);
 	}
@@ -703,11 +717,7 @@ void parse(cstr filename)
 	halt();
 
 	lex_destroy(p.ls);
-}
-
-void parser_destroy(Parser* p)
-{
-	lex_destroy(p->ls);
+	p.ls = NULL;
 }
 
 #undef pop

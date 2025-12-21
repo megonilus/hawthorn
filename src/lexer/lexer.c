@@ -28,23 +28,24 @@
 
 #define save(ls, c) String_appendc(&ls->buffer, c);
 // #define save(ls, c) String_appendc(&sls->buffer, c)
-#define save_and_next(ls)                                                                          \
-	save(ls, ls->current);                                                                         \
+#define save_and_next(ls)                                                 \
+	save(ls, ls->current);                                                \
 	advance(ls);
+
+#define raw_read(l) (ls->source[ls->pos])
+#define raw_read_next(l) (ls->source[ls->pos++])
 
 static inline void advance(LexState* ls)
 {
-	if (ls->file_contents.n < buffer_len(ls->file_contents))
+	if (raw_read(l) != EOF)
 	{
-		ls->current = buffer_readnext(ls->file_contents);
+		ls->current = raw_read_next(ls);
 	}
 	else
 	{
 		ls->current = EOF;
 	}
 }
-
-static noret lex_error(this, cstr msg, TokenType token);
 
 static lexer_char check_next1(this, lexer_char c)
 {
@@ -61,13 +62,15 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 {
 	const char* s  = str->value;
 	size_t		ln = (size_t) str->length;
-	if (ln == 0) return (TokenType) 0;
-#define KW_CHECK_PART(start, rest_lit, tok)                                                        \
-	do                                                                                             \
-	{                                                                                              \
-		const size_t __kw_len = (sizeof(rest_lit) - 1u);                                           \
-		if (ln == (size_t) (start) + __kw_len && memcmp(s + (start), (rest_lit), __kw_len) == 0)   \
-			return (tok);                                                                          \
+	if (ln == 0)
+		return (TokenType) 0;
+#define KW_CHECK_PART(start, rest_lit, tok)                               \
+	do                                                                    \
+	{                                                                     \
+		const size_t __kw_len = (sizeof(rest_lit) - 1u);                  \
+		if (ln == (size_t) (start) + __kw_len &&                          \
+			memcmp(s + (start), (rest_lit), __kw_len) == 0)               \
+			return (tok);                                                 \
 	} while (0)
 #define KW_CHECK_FULL(rest_lit, tok) KW_CHECK_PART(0, rest_lit, tok)
 	switch ((unsigned char) s[0])
@@ -161,6 +164,7 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 #undef KW_CHECK_FULL
 	return 0;
 }
+
 static lexer_char check_next2(this, const char* set)
 {
 	assert(set[2] == '0');
@@ -178,7 +182,8 @@ static lexer_char keyword_or_name(this)
 
 	if (ch == 0)
 	{
-		ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length, NULL);
+		ls->seminfo->str_ = take_string(String_take_value(&ls->buffer),
+										ls->buffer.length, NULL);
 		return TK_NAME;
 	}
 
@@ -215,7 +220,8 @@ static int str_2num(const char* s, TValue* result)
 		next();
 	}
 
-	massert(isdigit(*p), "Numbers must be starting with number, found '%c'", *p);
+	massert(isdigit(*p),
+			"Numbers must be starting with number, found '%c'", *p);
 
 	for (; isdigit(*p) || *p == '.'; next())
 	{
@@ -234,7 +240,7 @@ static int str_2num(const char* s, TValue* result)
 		error("Number touching a letter");
 	}
 
-	if (!dot) // just integer value
+	if (!dot)	// just integer value
 	{
 		long long val = strtoll(s, NULL, 10);
 
@@ -246,8 +252,9 @@ static int str_2num(const char* s, TValue* result)
 
 		if (val > (long long) HAW_INT_MAX || val < (long long) HAW_INT_MIN)
 		{
-			// errorf("Integer literal %s exceeds limits of haw_int (%lld to %lld)", s,
-			// (long long) HAW_INT_MIN, (long long) HAW_INT_MAX);
+			// errorf("Integer literal %s exceeds limits of haw_int (%lld
+			// to %lld)", s, (long long) HAW_INT_MIN, (long long)
+			// HAW_INT_MAX);
 			goto convert_to_number;
 		}
 
@@ -270,12 +277,12 @@ convert_to_number:
 
 static void read_escape(this)
 {
-	char c;		 // result
-	advance(ls); // start of escape sequence
+	char c;		   // result
+	advance(ls);   // start of escape sequence
 	switch (ls->current)
 	{
 	case 'a':
-		c = '\a'; // bell
+		c = '\a';	// bell
 		advance(ls);
 		break;
 	case 'b':
@@ -286,27 +293,27 @@ static void read_escape(this)
 		c = '\f';
 		advance(ls);
 		break;
-	case 'e': // escape character
+	case 'e':	// escape character
 		c = '\e';
 		advance(ls);
 		break;
-	case 'r': // caret return
-	case 'n': // new line
+	case 'r':	// caret return
+	case 'n':	// new line
 		c = '\n';
 		ls->line_number++;
 		advance(ls);
 		break;
-	case 't': // horizontal tab
+	case 't':	// horizontal tab
 		c = '\t';
 		advance(ls);
 		break;
-	case 'v': // vertical tab
+	case 'v':	// vertical tab
 		c = '\v';
 		advance(ls);
 		break;
-	case '\\': // backslash
-	case '"':  // "
-	case '\'': // "
+	case '\\':	 // backslash
+	case '"':	 // "
+	case '\'':	 // "
 		c = ls->current;
 		advance(ls);
 		break;
@@ -323,7 +330,7 @@ static void read_escape(this)
 static void read_string(this)
 {
 	assert(ls->current == '"');
-	advance(ls); // "
+	advance(ls);   // "
 
 	while (ls->current != '"')
 	{
@@ -344,8 +351,9 @@ static void read_string(this)
 		}
 	}
 
-	advance(ls); // "
-	ls->seminfo->str_ = take_string(String_take_value(&ls->buffer), ls->buffer.length, NULL);
+	advance(ls);   // "
+	ls->seminfo->str_ = take_string(String_take_value(&ls->buffer),
+									ls->buffer.length, NULL);
 }
 
 static lexer_char read_numeral(this)
@@ -378,14 +386,12 @@ static lexer_char read_numeral(this)
 	}
 }
 
-void lex_init(this, cstr source_name, SemInfo* seminfo, flags_t flags)
+void lex_init(this, cstr source, SemInfo* seminfo)
 {
-	ls->source_name = source_name;
 	ls->seminfo		= seminfo;
-	ls->flags		= flags;
-
-	buffer_init(&ls->file_contents);
-	buffer_readfile(&ls->file_contents, source_name);
+	ls->pos			= 0;
+	ls->source		= source;
+	ls->line_number = 0;
 
 	advance(ls);
 	String_init(&ls->buffer);
@@ -399,9 +405,9 @@ uint8_t current_is_new_line(this)
 Token lex(this)
 {
 	Token result;
-	String_clear(&ls->buffer); // clear buffer
-#define result_tset(t)                                                                             \
-	result.type = t;                                                                               \
+	String_clear(&ls->buffer);	 // clear buffer
+#define result_tset(t)                                                    \
+	result.type = t;                                                      \
 	goto done;
 
 	for (;;)
@@ -426,18 +432,18 @@ Token lex(this)
 		case '\v':
 			advance(ls);
 			break;
-#define doubletok(t, single_t, dt, double_t)                                                       \
-	case t:                                                                                        \
-	{                                                                                              \
-		advance(ls);                                                                               \
-		if (check_next1(ls, dt))                                                                   \
-		{                                                                                          \
-			result_tset(double_t);                                                                 \
-		}                                                                                          \
-		else                                                                                       \
-		{                                                                                          \
-			result_tset(single_t)                                                                  \
-		}                                                                                          \
+#define doubletok(t, single_t, dt, double_t)                              \
+	case t:                                                               \
+	{                                                                     \
+		advance(ls);                                                      \
+		if (check_next1(ls, dt))                                          \
+		{                                                                 \
+			result_tset(double_t);                                        \
+		}                                                                 \
+		else                                                              \
+		{                                                                 \
+			result_tset(single_t)                                         \
+		}                                                                 \
 	}
 			doubletok('+', '+', '+', TK_INC);
 			doubletok('-', '-', '-', TK_DEC);
@@ -448,7 +454,7 @@ Token lex(this)
 			doubletok('!', '!', '=', TK_NOTEQ);
 		case '\\':
 			advance(ls);
-			if (check_next1(ls, '\\')) // comment
+			if (check_next1(ls, '\\'))	 // comment
 			{
 				while (!current_is_new_line(ls) && ls->current != EOF)
 				{
@@ -461,8 +467,8 @@ Token lex(this)
 				result_tset('\\');
 			}
 		case '=':
-			advance(ls);			  // =
-			if (check_next1(ls, '=')) // ==
+			advance(ls);				// =
+			if (check_next1(ls, '='))	// ==
 			{
 				result_tset(TK_EQ);
 			}
@@ -476,7 +482,7 @@ Token lex(this)
 			}
 		case '<':
 			advance(ls);
-			if (check_next1(ls, '=')) // <=
+			if (check_next1(ls, '='))	// <=
 			{
 				result_tset(TK_LE);
 			}
@@ -493,7 +499,7 @@ Token lex(this)
 			read_string(ls);
 			result_tset(TK_STRING);
 		case '\'':
-			advance(ls); // '
+			advance(ls);   // '
 
 			if (check_next1(ls, '\''))
 			{
@@ -506,7 +512,8 @@ Token lex(this)
 			}
 			else
 			{
-				save_and_next(ls); // save the char payload(which contained in '')
+				save_and_next(
+					ls);   // save the char payload(which contained in '')
 			}
 
 			if (!check_next1(ls, '\''))
@@ -514,8 +521,8 @@ Token lex(this)
 				error("Expected end of char");
 			}
 
-			ls->seminfo->str_ =
-				take_string(String_take_value(&ls->buffer), ls->buffer.length, NULL);
+			ls->seminfo->str_ = take_string(String_take_value(&ls->buffer),
+											ls->buffer.length, NULL);
 			result_tset(TK_CHAR);
 		case '0':
 		case '1':
@@ -565,7 +572,6 @@ done:
 void lex_destroy(this)
 {
 	String_destroy(&ls->buffer);
-	buffer_destroy(&ls->file_contents);
 }
 
 int dislex_lastline = 0;
@@ -578,7 +584,7 @@ void dislex(this, lexer_char token)
 		dislex_lastline = ls->line_number;
 	}
 
-	if (token < FIRST_RESERVED && isprint(token)) // single byte symbols?
+	if (token < FIRST_RESERVED && isprint(token))	// single byte symbols?
 	{
 		printf("%c ", token);
 	}
@@ -595,7 +601,7 @@ void dislex(this, lexer_char token)
 cstr_mut tok_2str(lexer_char token)
 {
 	static char s[MAX_TOKEN_BUFF];
-	if (token < FIRST_RESERVED) // single byte symbols?
+	if (token < FIRST_RESERVED)	  // single byte symbols?
 	{
 		if (isprint(token))
 		{
@@ -617,3 +623,5 @@ cstr_mut tok_2str(lexer_char token)
 
 #undef assignl
 #undef this
+#undef raw_read
+#undef raw_read_next

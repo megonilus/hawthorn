@@ -1,17 +1,27 @@
 #include "share/common.h"
+#include "share/hawthorn.h"
 
+#include <setjmp.h>
 #include <share/error.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+jmp_buf repl_panic;
+
 static noret exited()
 {
+	if (getflag(flags, REPL))
+	{
+		longjmp(repl_panic, 1);
+	}
+
 	fprintf(stderr, "%s: exited due errors in runtime\n", PROGRAM_NAME);
 	exit(1);
 }
 
-noret throw_error_with_line(const char* module_name, const char* error_msg, int line)
+noret throw_error_with_line(const char* module_name, const char* error_msg,
+							int line)
 {
 	fflush(stdout);
 	fprintf(stderr, "\n%s: %s at %d\n", module_name, error_msg, line);

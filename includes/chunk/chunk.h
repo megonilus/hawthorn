@@ -35,17 +35,17 @@ void emit_byte(this, hawu_byte byte);
 
 #define emit_bytes(c, ...) emit_some_bytes(c, __VA_ARGS__, -1)
 void emit_some_bytes(this, ...);
-
 void chunk_destroy(this);
-
 void disassemble(this);
+void chunk_clear(this);
 
 #define emit(v) (emit_byte(chunk, v))
 
-#define from_u24(ma, md, mi) ((ma) | (uint32_t) (md) << 8 | (uint32_t) (mi) << 16)
-#define to_u24(v)                                                                                  \
-	uint8_t major = v & 0xFF;                                                                      \
-	uint8_t mid	  = (v >> 8) & 0xFF;                                                               \
+#define from_u24(ma, md, mi)                                              \
+	((ma) | (uint32_t) (md) << 8 | (uint32_t) (mi) << 16)
+#define to_u24(v)                                                         \
+	uint8_t major = v & 0xFF;                                             \
+	uint8_t mid	  = (v >> 8) & 0xFF;                                      \
 	uint8_t minor = (v >> 16) & 0xFF;
 
-#endif // !hawthorn_chunk
+#endif	 // !hawthorn_chunk

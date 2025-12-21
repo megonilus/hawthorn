@@ -74,6 +74,7 @@ void vm_execute()
 		uint8_t instruction = read_byte();
 		if (instruction == OP_HALT)
 		{
+			v.pc = 0;
 			return;
 		}
 

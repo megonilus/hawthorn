@@ -11,11 +11,11 @@ typedef int lexer_char;
 
 typedef struct
 {
-	flags_t flags;
-	Buffer	file_contents;
-
 	lexer_char current;
 	lexer_size line_number;
+
+	const char* source;
+	size_t		pos;
 
 	String buffer;
 
@@ -26,7 +26,7 @@ typedef struct
 #undef this
 #define this LexState* ls
 
-void lex_init(this, cstr source_name, SemInfo* seminfo, flags_t flags);
+void lex_init(this, cstr source_name, SemInfo* seminfo);
 void lex_destroy(this);
 
 Token lex(this);
@@ -36,5 +36,5 @@ cstr_mut tok_2str(lexer_char token);
 
 void dislex(this, lexer_char token);
 
-#endif // !haw_lexer
+#endif	 // !haw_lexer
 #undef this
