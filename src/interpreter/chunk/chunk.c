@@ -36,6 +36,9 @@ inline void chunk_destroy(this)
 {
 	array_free(chunk->code);
 	array_free(chunk->constants);
+
+	chunk->code		 = NULL;
+	chunk->constants = NULL;
 }
 
 static void simple_instruction(OpCode opcode, int* offset)

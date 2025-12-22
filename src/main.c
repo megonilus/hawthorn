@@ -99,17 +99,17 @@ static inline void run_file(cstr filename)
 	run(readfile(filename));
 }
 
+extern jmp_buf repl_panic;
+
 static volatile int repl_running = 1;
 
 static void stop_repl(int a)
 {
 	repl_running = 0;
-	exit(0);
+	longjmp(repl_panic, 1);
 }
 
 #define BUFFER_SIZE 128
-
-extern jmp_buf repl_panic;
 
 static void repl_cycle()
 {
@@ -122,14 +122,19 @@ static void repl_cycle()
 	char buffer[BUFFER_SIZE];
 	printf("%s %s by %s\n\n", HAW_INTERP_NAME, HAW_VERSION, HAW_AUTHOR);
 
-	while (repl_running)
+	for (;;)
 	{
 		if (setjmp(repl_panic) != 0)
 		{
+			if (!repl_running)
+			{
+				break;
+			}
 			printf("\033[31;1;4m[!]\033[0m Error received.\n");
 
 			v.pc = 0;	// reset program counter
 			parser_clean(&p);
+			continue;
 		}
 		printf("\033[36;1;4m[>]\033[0m ");
 
@@ -148,7 +153,6 @@ static void repl_cycle()
 		parser_clean(&p);
 	}
 
-	// clean up the mess
 	vm_destroy();
 }
 

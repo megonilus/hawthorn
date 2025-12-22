@@ -55,7 +55,8 @@ static void adjust_capacity(Table* table, size_t new_capacity)
 
 void table_set(Table* table, haw_string* key, TValue value)
 {
-	if (array_size(table->entries) + 1 > array_capacity(table->entries) * TABLE_MAX_LOAD)
+	if (array_size(table->entries) + 1 >
+		array_capacity(table->entries) * TABLE_MAX_LOAD)
 	{
 		adjust_capacity(table, array_capacity(table->entries) * 2);
 	}
@@ -79,6 +80,7 @@ inline void table_init(Table* table)
 inline void table_destroy(Table* table)
 {
 	array_free(table->entries);
+	table->entries = NULL;
 }
 
 void table_copy(Table* to, Table* from)
@@ -112,20 +114,20 @@ int table_get(Table* table, haw_string* key, TValue* value)
 	return 1;
 }
 
-haw_string* table_find_string(Table* table, const char* chars, size_t length, hash hash,
-							  TValue* write)
+haw_string* table_find_string(Table* table, const char* chars,
+							  size_t length, hash hash, TValue* write)
 {
-#define writevalue(v)                                                                              \
-	if (write != NULL)                                                                             \
-	{                                                                                              \
-		if (entry->value.type != HAW_TVOID)                                                        \
-		{                                                                                          \
-			*write = v;                                                                            \
-		}                                                                                          \
-		else                                                                                       \
-		{                                                                                          \
-			write->type = HAW_TNONE;                                                               \
-		}                                                                                          \
+#define writevalue(v)                                                     \
+	if (write != NULL)                                                    \
+	{                                                                     \
+		if (entry->value.type != HAW_TVOID)                               \
+		{                                                                 \
+			*write = v;                                                   \
+		}                                                                 \
+		else                                                              \
+		{                                                                 \
+			write->type = HAW_TNONE;                                      \
+		}                                                                 \
 	}
 
 	if (array_empty(table->entries))
@@ -142,7 +144,8 @@ haw_string* table_find_string(Table* table, const char* chars, size_t length, ha
 			writevalue(v_mone());
 			return NULL;
 		}
-		else if (entry->key->length == length && entry->key->hash == hash &&
+		else if (entry->key->length == length &&
+				 entry->key->hash == hash &&
 				 memcmp(entry->key->chars, chars, length) == 0)
 		{
 			writevalue(entry->value);

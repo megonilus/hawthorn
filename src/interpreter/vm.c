@@ -400,6 +400,7 @@ inline void vm_destroy()
 	table_destroy(&v.globals);
 
 	chunk_destroy(v.chunk);
+	v.chunk = NULL;
 
 	if (!(array_empty(v.stack)))
 	{
@@ -407,6 +408,7 @@ inline void vm_destroy()
 	}
 
 	array_free(v.stack);
+	v.stack = NULL;
 
 	objects_free();
 }
