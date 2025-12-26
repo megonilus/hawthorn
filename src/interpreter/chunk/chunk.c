@@ -120,8 +120,8 @@ static void onearg_instruction(Chunk* chunk, int* offset, int wide)
 
 static void short_instruction(Chunk* chunk, int* offset)
 {
-	printf("%4d %s %u %u\n", *offset, op_name(chunk->code[*offset]),
-		   chunk->code[*offset + 1], chunk->code[*offset + 2]);
+	printf("%4d %s %u\n", *offset, op_name(chunk->code[*offset]),
+		   chunk->code[*offset + 1] | chunk->code[*offset + 2] & 0xFF);
 
 	*offset += 3;
 }
@@ -162,6 +162,7 @@ void disassemble(Chunk* chunk)
 			slot_instruction(chunk, &offset);
 			break;
 		case OP_JMP:
+		case OP_NJMP:
 		case OP_JMPF:
 			short_instruction(chunk, &offset);
 			break;

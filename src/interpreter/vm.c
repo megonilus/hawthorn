@@ -90,9 +90,10 @@ void vm_execute()
 
 		case OP_JMPF:
 		{
-			uint16_t offset = read_short();
+			uint16_t offset	   = read_short();
+			TValue	 condition = pop();
 
-			if (!v_istruth(&v.stack[array_size(v.stack) - 1]))
+			if (!v_istruth(&condition))
 			{
 				v.pc += offset;
 			}
@@ -103,6 +104,13 @@ void vm_execute()
 		{
 			uint16_t offset = read_short();
 			v.pc += offset;
+
+			break;
+		}
+		case OP_NJMP:
+		{
+			uint16_t offset = read_short();
+			v.pc -= offset;
 
 			break;
 		}

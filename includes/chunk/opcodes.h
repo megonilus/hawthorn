@@ -34,9 +34,11 @@ typedef enum
 
 	OP_JMP,	   // jump <K>
 	OP_JMPF,   // jump <K> if pop() false
+	OP_NJMP,   // same as jmp but negative
 
 	OP_SETLOCAL,
 	OP_SETGLOBAL,
+
 	OP_LOADLOCAL,
 	OP_LOADGLOBAL,
 
@@ -47,7 +49,7 @@ typedef enum
 
 	OP_POP,
 
-	OP_WIDE,   // extends next op args
+	OP_WIDE,   // extends next op args from 1 byte to 3 bytes
 
 	OP_HALT,
 } OpCode;
@@ -84,6 +86,7 @@ static const char* opnames[] = {
 	[OP_WIDE]		   = "WIDE",
 	[OP_JMP]		   = "JMP",
 	[OP_JMPF]		   = "JMPF",
+	[OP_NJMP]		   = "NJMP",
 };
 
 typedef enum

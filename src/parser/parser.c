@@ -1,5 +1,6 @@
 #include "chunk/opcodes.h"
 #include "interpreter/vm.h"
+#include "share/array.h"
 #include "share/hawthorn.h"
 #include "share/table.h"
 #include "type/type.h"
@@ -245,6 +246,8 @@ dstmt(vardeclstat);
 dstmt(printstat);
 dstmt(scopestat);
 dstmt(ifstat);
+dstmt(whilestat);
+dstmt(forstat);
 
 // Expressions
 #define dexpr(s) static void s(int can_assign)
@@ -361,10 +364,7 @@ static void stmt()
 
 		// TODO
 	case TK_RETURN:
-	case TK_BREAK:
-	case TK_DO:
-	case TK_WHILE:
-	case TK_FOR:
+
 	case TK_BIND:
 		next();
 		break;
@@ -372,13 +372,18 @@ static void stmt()
 	case TK_PRINT:
 		printstat();
 		break;
+	case TK_WHILE:
+		whilestat();
+		break;
+	case TK_FOR:
+		forstat();
+		break;
 	case TK_IF:
 		ifstat();
 		break;
 	case '{':
 		scopestat();
 		break;
-
 	default:
 		expr_stmt();
 		break;
@@ -413,29 +418,6 @@ static void printstat()
 	emit_byte(&p.chunk, OP_PRINT);
 }
 
-static void ifstat()
-{
-	next();	  // if
-
-	expr(1);
-
-	int then_jump = emit_jump(&p.chunk, OP_JMPF);
-	pop();
-
-	stmt();	  // then body
-
-	int else_jump = emit_jump(&p.chunk, OP_JMP);
-	patch_jump(&p.chunk, then_jump);
-	pop();
-
-	if (match(TK_ELSE))
-	{
-		stmt();
-	}
-
-	patch_jump(&p.chunk, else_jump);
-}
-
 #define scope_begin() pscopes.scopes_deep++
 
 static void scope_end()
@@ -466,9 +448,107 @@ static inline void scopestat()
 	consume('}');
 }
 
+static void emit_njump(int start)
+{
+	int offset = array_size(p.chunk.code) + 3 - start;
+
+	if (offset > UINT16_MAX)
+	{
+		error("Loop body too large");
+	}
+
+	emit_bytes(&p.chunk, OP_NJMP, (offset >> 8) & 0xFF, offset & 0xFF);
+}
+
+static void whilestat()
+{
+	next();	  // while
+
+	int start = array_size(p.chunk.code);
+
+	int exit = -1;
+
+	expr(1);
+
+	int exit_jump = emit_jump(&p.chunk, OP_JMPF);
+
+	stmt();
+
+	emit_njump(start);
+
+	patch_jump(&p.chunk, exit_jump);
+}
+
+static void forstat()
+{
+	scope_begin();
+	next();	  // for
+
+	if (!match(';'))
+	{
+		decl();
+		consume(';');
+	}
+
+	uint32_t condition_start = array_size(p.chunk.code);
+
+	int exit_jump = -1;
+	if (!match(';'))
+	{
+		expr(1);
+		consume(';');
+		exit_jump = emit_jump(&p.chunk, OP_JMPF);
+	}
+
+	int body_jump = emit_jump(&p.chunk, OP_JMP);
+
+	uint32_t increment_start = array_size(p.chunk.code);
+
+	if (!match(';'))
+	{
+		expr_stmt();
+		consume(';');
+	}
+
+	emit_njump(condition_start);
+
+	patch_jump(&p.chunk, body_jump);
+	stmt();
+	emit_njump(increment_start);
+
+	if (exit_jump != -1)
+	{
+		patch_jump(&p.chunk, exit_jump);
+	}
+
+	scope_end();
+}
+
+static void ifstat()
+{
+	next();	  // if
+
+	expr(1);
+
+	int then_jump = emit_jump(&p.chunk, OP_JMPF);
+
+	stmt();	  // then body
+
+	uint32_t else_jump = emit_jump(&p.chunk, OP_JMP);
+	patch_jump(&p.chunk, then_jump);
+
+	if (match(TK_ELSE))
+	{
+		stmt();
+	}
+
+	patch_jump(&p.chunk, else_jump);
+}
+
 static inline void expr_stmt()
 {
 	expr(1);
+
 	if (getflag(flags, REPL))
 	{
 		emit_byte(&p.chunk, OP_PRINT);

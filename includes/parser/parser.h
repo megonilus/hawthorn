@@ -22,9 +22,8 @@ typedef struct
 
 typedef struct
 {
-	Chunk  chunk;
-	Scopes scopes;
-
+	Chunk	  chunk;
+	Scopes	  scopes;
 	Token	  previous;
 	Token	  current;
 	LexState* ls;

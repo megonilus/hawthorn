@@ -83,17 +83,11 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 		{
 			switch (s[1])
 			{
-			case 'r':
-				KW_CHECK_PART(2, "eak", TK_BREAK);
-				break;
 			case 'i':
 				KW_CHECK_PART(2, "nd", TK_BIND);
 				break;
 			}
 		}
-		break;
-	case 'd':
-		KW_CHECK_FULL("do", TK_DO);
 		break;
 	case 'e':
 		KW_CHECK_FULL("else", TK_ELSE);

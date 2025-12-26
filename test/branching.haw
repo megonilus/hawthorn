@@ -1,0 +1,21 @@
+set abc = "1234"
+set abc2 = "1234"
+
+if !false
+{
+	print "began"
+}
+
+if abc == abc2
+	print "good"
+
+else if 100 >= 200
+	print "bad"
+
+else
+	print "bad"
+
+print abc
+
+
+
