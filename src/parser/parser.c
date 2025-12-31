@@ -1,5 +1,6 @@
 #include "chunk/opcodes.h"
 #include "interpreter/vm.h"
+#include "parser/compiler.h"
 #include "share/array.h"
 #include "share/hawthorn.h"
 #include "share/table.h"
@@ -8,7 +9,6 @@
 #include "value/value.h"
 
 #include <stdint.h>
-#include <string.h>
 
 #undef this
 #include <chunk/chunk.h>
@@ -26,21 +26,28 @@
 #include <stdio.h>
 
 this;
+Compiler* current;
 
 #define set_globalp(pa) p = pa
 
 // utilities
 
-#define expected(t) errorf("Expected %s", tok_2str(t))
-#define expecteds(m) errorf("Expected %s", m)
+#define syntax_error(f)                                                   \
+	if (getflag(flags, DBG_DISASM))                                       \
+	{                                                                     \
+		disassemble(current_chunk());                                     \
+	}                                                                     \
+	f;
+
+#define expected(t) syntax_error(errorf("Expected %s", tok_2str(t)))
+#define expecteds(m) syntax_error(errorf("Expected %s", m))
 
 #define seminf p.current.seminfo
 #define tsem(a) (a)->seminfo
 #define tstr(a) tsem(a).str_
-#define pscopes p.scopes
 
-#define pop() emit_byte(&p.chunk, OP_POP)
-#define halt() emit_byte(&p.chunk, OP_HALT)
+#define pop() emit_byte(current_chunk(), OP_POP)
+#define halt() emit_byte(current_chunk(), OP_HALT)
 
 static inline void next()
 {
@@ -61,8 +68,8 @@ static inline void consumef(TokenType type, cstr msg)
 		return;
 	}
 
-	errorf("Expected %s, found %s", tok_2str(type),
-		   tok_2str(p.current.type));
+	syntax_error(errorf("Expected %s, found %s", tok_2str(type),
+						tok_2str(p.current.type)));
 }
 
 static inline void consume(TokenType type)
@@ -73,7 +80,15 @@ static inline void consume(TokenType type)
 		return;
 	}
 
-	errorf("Expected %s", tok_2str(type));
+	syntax_error(errorf("Expected %s", tok_2str(type)));
+}
+
+static inline void expect(TokenType type)
+{
+	if (p.current.type != type)
+	{
+		syntax_error(errorf("Expected %s", tok_2str(type)));
+	}
 }
 
 static inline int names_equal(Token* a, Token* b)
@@ -85,7 +100,7 @@ static inline haw_string* parse_name(Token* token)
 {
 	if (token->type != TK_NAME)
 	{
-		errorf("Expected %s", tok_2str(TK_NAME));
+		syntax_error(errorf("Expected %s", tok_2str(TK_NAME)));
 	}
 
 	return token->seminfo.str_;
@@ -102,27 +117,31 @@ static inline int match(TokenType type)
 	return 0;
 }
 
+static inline int matchn(TokenType type)
+{
+	return p.current.type == type;
+}
+
 static inline int emit_void()
 {
-	return write_constant(&p.chunk, v_void());
+	return write_constant(current_chunk(), v_void());
 }
 
 static int string_constant(haw_string* string)
 {
 	TValue idx;
-	idx.type	   = HAW_TINT;
-	TValue val	   = v_str(string);
-	obj_type(&val) = OBJ_STRING;
+	idx.type   = HAW_TINT;
+	TValue val = v_obj(string);
 
 	haw_string* interned = table_find_string(
 		&v.strings, string->chars, string->length, string->hash, &idx);
 
 	if (interned != NULL && idx.type != HAW_TNONE)
 	{
-		return raw_write_constant(&p.chunk, int_value(&idx));
+		return raw_write_constant(current_chunk(), int_value(&idx));
 	}
 
-	int index = write_constant(&p.chunk, val);
+	int index = write_constant(current_chunk(), val);
 
 	idx = v_int(index);
 
@@ -144,10 +163,10 @@ static int name_constant(haw_string* string)
 		return int_value(&idx);
 	}
 
-	TValue val	   = v_str(string);
+	TValue val	   = v_obj(string);
 	obj_type(&val) = OBJ_STRING;
 
-	int index = add_constant(&p.chunk, val);
+	int index = add_constant(current_chunk(), val);
 
 	table_set(&v.strings, string, v_int(index));
 
@@ -162,34 +181,34 @@ static inline int compile_name(Token* token)
 
 static inline void add_local(Token* name)
 {
-	if (p.scopes.local_count == UINT8_MAX)
+	if (current->local_count == UINT8_MAX)
 	{
 		error("too many local variables");
 	}
 
-	Local* local = &pscopes.locals[pscopes.local_count++];
+	Local* local = &current->locals[current->local_count++];
 	local->name	 = *name;
 	local->depth = -1;
 }
 
 static void decl_var(Token* name)
 {
-	if (pscopes.scopes_deep == 0)
+	if (current->scopes_deep == 0)
 	{
 		return;
 	}
 
-	for (int i = pscopes.local_count - 1; i >= 0; i--)
+	for (int i = current->local_count - 1; i >= 0; i--)
 	{
-		Local* local = &pscopes.locals[i];
-		if (local->depth != -1 && local->depth < pscopes.scopes_deep)
+		Local* local = &current->locals[i];
+		if (local->depth != -1 && local->depth < current->scopes_deep)
 		{
 			break;
 		}
 
 		if (names_equal(name, &local->name))
 		{
-			error("");
+			syntax_error(error("Redefenition"));
 		}
 	}
 
@@ -201,7 +220,7 @@ static inline int parse_variable(Token* token)
 	int arg = compile_name(token);
 
 	decl_var(token);
-	if (pscopes.scopes_deep > 0)
+	if (current->scopes_deep > 0)
 	{
 		return -1;
 	}
@@ -213,12 +232,12 @@ static inline void var(int arg, OpCode opcode)
 {
 	if (arg <= UINT8_MAX)
 	{
-		emit_bytes(&p.chunk, opcode, arg);
+		emit_bytes(current_chunk(), opcode, arg);
 	}
 	else
 	{
 		to_u24(arg);
-		emit_bytes(&p.chunk, OP_WIDE, opcode, major, mid, minor);
+		emit_bytes(current_chunk(), OP_WIDE, opcode, major, mid, minor);
 	}
 }
 
@@ -226,8 +245,8 @@ static inline void def_var(int arg)
 {
 	if (arg == -1)	 // local
 	{
-		pscopes.locals[pscopes.local_count - 1].depth =
-			pscopes.scopes_deep;
+		current->locals[current->local_count - 1].depth =
+			current->scopes_deep;
 		return;
 	}
 
@@ -246,12 +265,15 @@ dstmt(vardeclstat);
 dstmt(printstat);
 dstmt(scopestat);
 dstmt(ifstat);
+dstmt(fundeclstat);
 dstmt(whilestat);
 dstmt(forstat);
+dstmt(returnstat);
 
 // Expressions
 #define dexpr(s) static void s(int can_assign)
 dexpr(expr);
+dexpr(call);
 dexpr(binary);
 dexpr(unary);
 dexpr(literal);
@@ -300,7 +322,7 @@ static ParseRule rules[] = {
 	onlypfunc(TK_NAME, name),
 
 	// symbols
-	onlypfunc('(', grouping),
+	rule('(', grouping, call, PREC_CALL),
 	emptyrule(')'),
 	emptyrule('{'),
 	emptyrule('}'),
@@ -348,6 +370,9 @@ static void decl()
 	case TK_SET:
 		vardeclstat();
 		break;
+	case TK_FUN:
+		fundeclstat();
+		break;
 	default:
 		stmt();
 		break;
@@ -362,8 +387,9 @@ static void stmt()
 		next();
 		break;
 
-		// TODO
 	case TK_RETURN:
+		returnstat();
+		break;
 
 	case TK_BIND:
 		next();
@@ -409,33 +435,34 @@ static void vardeclstat()
 	}
 
 	def_var(arg);
+	pop();
 }
 
 static void printstat()
 {
 	next();
 	expr(0);
-	emit_byte(&p.chunk, OP_PRINT);
+	emit_byte(current_chunk(), OP_PRINT);
 }
 
-#define scope_begin() pscopes.scopes_deep++
+#define scope_begin() current->scopes_deep++
 
 static void scope_end()
 {
-	pscopes.scopes_deep--;
+	current->scopes_deep--;
 
-	while (pscopes.local_count > 0 &&
-		   pscopes.locals[pscopes.local_count - 1].depth >
-			   pscopes.scopes_deep)
+	while (current->local_count > 0 &&
+		   current->locals[current->local_count - 1].depth >
+			   current->scopes_deep)
 	{
 		pop();
-		pscopes.local_count--;
+		current->local_count--;
 	}
 }
 
 static inline void scopestat()
 {
-	next();
+	next();	  // {
 	scope_begin();
 
 	while (p.current.type != TK_EOF && p.current.type != '}')
@@ -448,35 +475,93 @@ static inline void scopestat()
 	consume('}');
 }
 
+static void function(FunctionType type)
+{
+	Compiler compiler;
+	compiler_init(&compiler, type);
+	scope_begin();
+
+	if (!matchn('{'))
+	{
+		do
+		{
+			current->function->argc++;
+			if (current->function->argc > 255)
+			{
+				syntax_error(error("Too much parameters"));
+			}
+
+			unsigned constant = parse_variable(&p.current);
+			next();
+			def_var(constant);
+		} while (match(','));
+	}
+
+	expect('{');
+	scopestat();
+
+	haw_function* fun = compiler_end();
+	write_constant(current_chunk(), v_obj(fun));
+}
+
+static void returnstat()
+{
+	next();
+
+	if (match(';'))
+	{
+		write_constant(current_chunk(), v_void());
+		emit_byte(current_chunk(), OP_RETURN);
+	}
+	else
+	{
+		expr(0);
+		emit_byte(current_chunk(), OP_RETURN);
+	}
+}
+
+static void fundeclstat()
+{
+	next();	  // fun
+
+	unsigned arg = parse_variable(&p.current);
+	next();
+	consume(':');
+
+	function(TYPE_FUNCTION);
+	def_var(arg);
+}
+
 static void emit_njump(int start)
 {
-	int offset = array_size(p.chunk.code) + 3 - start;
+	int offset = array_size(current_chunk()->code) + 3 - start;
 
 	if (offset > UINT16_MAX)
 	{
-		error("Loop body too large");
+		syntax_error(error("Loop body too large"));
 	}
 
-	emit_bytes(&p.chunk, OP_NJMP, (offset >> 8) & 0xFF, offset & 0xFF);
+	emit_bytes(current_chunk(), OP_NJMP, (offset >> 8) & 0xFF,
+			   offset & 0xFF);
 }
 
 static void whilestat()
 {
 	next();	  // while
 
-	int start = array_size(p.chunk.code);
+	int start = array_size(current_chunk()->code);
 
 	int exit = -1;
 
 	expr(1);
 
-	int exit_jump = emit_jump(&p.chunk, OP_JMPF);
+	int exit_jump = emit_jump(current_chunk(), OP_JMPF);
 
 	stmt();
 
 	emit_njump(start);
 
-	patch_jump(&p.chunk, exit_jump);
+	patch_jump(current_chunk(), exit_jump);
 }
 
 static void forstat()
@@ -490,35 +575,35 @@ static void forstat()
 		consume(';');
 	}
 
-	uint32_t condition_start = array_size(p.chunk.code);
+	uint32_t condition_start = array_size(current_chunk()->code);
 
 	int exit_jump = -1;
 	if (!match(';'))
 	{
 		expr(1);
 		consume(';');
-		exit_jump = emit_jump(&p.chunk, OP_JMPF);
+		exit_jump = emit_jump(current_chunk(), OP_JMPF);
 	}
 
-	int body_jump = emit_jump(&p.chunk, OP_JMP);
+	int body_jump = emit_jump(current_chunk(), OP_JMP);
 
-	uint32_t increment_start = array_size(p.chunk.code);
+	uint32_t increment_start = array_size(current_chunk()->code);
 
-	if (!match(';'))
+	if (!matchn('{'))
 	{
 		expr_stmt();
-		consume(';');
 	}
 
 	emit_njump(condition_start);
 
-	patch_jump(&p.chunk, body_jump);
-	stmt();
+	patch_jump(current_chunk(), body_jump);
+	scopestat();
+
 	emit_njump(increment_start);
 
 	if (exit_jump != -1)
 	{
-		patch_jump(&p.chunk, exit_jump);
+		patch_jump(current_chunk(), exit_jump);
 	}
 
 	scope_end();
@@ -530,19 +615,19 @@ static void ifstat()
 
 	expr(1);
 
-	int then_jump = emit_jump(&p.chunk, OP_JMPF);
+	int then_jump = emit_jump(current_chunk(), OP_JMPF);
 
 	stmt();	  // then body
 
-	uint32_t else_jump = emit_jump(&p.chunk, OP_JMP);
-	patch_jump(&p.chunk, then_jump);
+	uint32_t else_jump = emit_jump(current_chunk(), OP_JMP);
+	patch_jump(current_chunk(), then_jump);
 
 	if (match(TK_ELSE))
 	{
 		stmt();
 	}
 
-	patch_jump(&p.chunk, else_jump);
+	patch_jump(current_chunk(), else_jump);
 }
 
 static inline void expr_stmt()
@@ -551,7 +636,7 @@ static inline void expr_stmt()
 
 	if (getflag(flags, REPL))
 	{
-		emit_byte(&p.chunk, OP_PRINT);
+		emit_byte(current_chunk(), OP_PRINT);
 	}
 	else
 	{
@@ -590,21 +675,21 @@ static void prec(Precedence prec)
 
 	if (canAssign && match('='))
 	{
-		error("Invalid assignment target");
+		syntax_error(error("Invalid assignment target"));
 	}
 }
 
 static int resolve_local(Token* name)
 {
-	for (int i = pscopes.local_count - 1; i >= 0; i--)
+	for (int i = current->local_count - 1; i >= 0; i--)
 	{
-		Local* local = &pscopes.locals[i];
+		Local* local = &current->locals[i];
 		if (names_equal(name, &local->name))
 		{
 			if (local->depth == -1)
 			{
-				error(
-					"Cannot read local variable in it's own initializer");
+				syntax_error(error(
+					"Cannot read local variable in it's own initializer"));
 			}
 
 			return i;
@@ -645,6 +730,47 @@ static void name(int can_assign)
 	}
 }
 
+static uint8_t arguments()
+{
+	uint8_t argc = 0;
+
+	if (match(')'))
+	{
+		return 0;
+	}
+
+	for (;;)
+	{
+		expr(0);
+
+		if (argc == 255)
+		{
+			error("Too many arguments");
+		}
+		argc++;
+
+		if (match(')'))
+		{
+			break;
+		}
+
+		if (!match(','))
+		{
+			expected(',');
+			break;
+		}
+	}
+
+	return argc;
+}
+
+static void call(int can_assign)
+{
+	uint8_t argc = arguments();
+
+	emit_bytes(current_chunk(), OP_CALL, argc);
+}
+
 static void binary(int can_assign)
 {
 	lexer_char op	= p.previous.type;
@@ -656,7 +782,7 @@ static void binary(int can_assign)
 	{
 #define oper(OP, B)                                                       \
 	case OP:                                                              \
-		emit_byte(&p.chunk, B);                                           \
+		emit_byte(current_chunk(), B);                                    \
 		break;
 
 		// arithmetic
@@ -677,8 +803,8 @@ static void binary(int can_assign)
 		oper(OPR_BLT, OP_LT);
 		oper(OPR_BEQ, OP_EQ);
 	case OPR_BNEQ:
-		emit_byte(&p.chunk, OP_EQ);
-		emit_byte(&p.chunk, OP_NOT);
+		emit_byte(current_chunk(), OP_EQ);
+		emit_byte(current_chunk(), OP_NOT);
 		break;
 
 #undef oper
@@ -701,18 +827,18 @@ static void unary(int can_assign)
 	switch (getunopr(op))
 	{
 	case OPR_NEGATE:
-		emit_byte(&p.chunk, OP_NEG);
+		emit_byte(current_chunk(), OP_NEG);
 		break;
 	case OPR_INC:
-		write_constant(&p.chunk, v_one());
-		emit_byte(&p.chunk, OP_ADD);
+		write_constant(current_chunk(), v_one());
+		emit_byte(current_chunk(), OP_ADD);
 		break;
 	case OPR_DEC:
-		write_constant(&p.chunk, v_one());
-		emit_byte(&p.chunk, OP_SUB);
+		write_constant(current_chunk(), v_one());
+		emit_byte(current_chunk(), OP_SUB);
 		break;
 	case OPR_NOT:
-		emit_byte(&p.chunk, OP_NOT);
+		emit_byte(current_chunk(), OP_NOT);
 		break;
 	default:
 		unreachable();
@@ -723,15 +849,15 @@ static void postfix(int can_assign)
 {
 	lexer_char op = p.previous.type;
 
-	write_constant(&p.chunk, v_one());
+	write_constant(current_chunk(), v_one());
 
 	if (op == TK_INC)
 	{
-		emit_byte(&p.chunk, OP_ADD);
+		emit_byte(current_chunk(), OP_ADD);
 	}
 	else
 	{
-		emit_byte(&p.chunk, OP_SUB);
+		emit_byte(current_chunk(), OP_SUB);
 	}
 }
 
@@ -773,25 +899,21 @@ static void literal(int can_assign)
 		expecteds("expression");
 	}
 
-	write_constant(&p.chunk, result);
+	write_constant(current_chunk(), result);
 }
 
 void parser_init(Parser* p, LexState* ls)
 {
-	p->scopes.scopes_deep = 0;
-	p->scopes.local_count = 0;
-	p->ls				  = ls;
-
-	chunk_init(&p->chunk);
+	p->ls		 = ls;
+	p->functions = array(haw_function);
 }
 
-inline void parser_clean(Parser* p)
+void parser_destroy(Parser* p)
 {
-	chunk_clear(&p->chunk);
-	p->scopes.scopes_deep = 0;
+	array_free(&p->functions);
 }
 
-void parse(cstr source)
+haw_function* parse(cstr source)
 {
 	SemInfo seminfo;
 	int		printlexems = getflag(flags, DBG_LEXER);
@@ -815,10 +937,18 @@ void parse(cstr source)
 
 	if (getflag(flags, DBG_DISASM))
 	{
-		disassemble(&p.chunk);
+		disassemble(current_chunk());
 	}
 
 	halt();
+
+	if (!getflag(flags, REPL))
+	{
+		return compiler_end();
+	}
+
+	chunk_clear(current_chunk());
+	return current->function;
 }
 
 #undef pop

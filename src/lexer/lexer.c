@@ -104,6 +104,9 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 				seminfo->int_ = 0;
 				KW_CHECK_PART(2, "lse", TK_BOOL);
 				break;
+			case 'u':
+				KW_CHECK_PART(1, "un", TK_FUN);
+				break;
 			}
 		}
 		break;
@@ -113,8 +116,7 @@ static lexer_char is_reserved(const String* str, SemInfo* seminfo)
 			switch (s[1])
 			{
 			case 'f':
-				KW_CHECK_FULL("if", TK_IF);
-				break;
+				return TK_IF;
 			case 'n':
 				KW_CHECK_PART(1, "nt", TK_INT);
 				break;

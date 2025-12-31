@@ -4,12 +4,24 @@
 #include <value/obj.h>
 #include <value/value.h>
 
+static void print_function(haw_function* fn)
+{
+	if (fn->name == NULL)
+	{
+		printf("<script>");
+	}
+	printf("<function %s>", fn->name->chars);
+}
+
 static void print_object(const TValue* value)
 {
 	switch (obj_value(value)->type)
 	{
 	case OBJ_STRING:
 		printf("%s", cstring_value(value));
+		break;
+	case OBJ_FUNCTION:
+		print_function(function_value(value));
 		break;
 	default:
 		unreachable();
@@ -91,6 +103,8 @@ int valueeq(const TValue* left, const TValue* right)
 			{
 			case OBJ_STRING:
 				return obj_value(left) == obj_value(right);
+			default:
+				return 0;
 			}
 		}
 		// TODO

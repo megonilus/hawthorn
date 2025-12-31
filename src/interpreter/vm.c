@@ -11,28 +11,32 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
 #endif
 #define MODULE_NAME "vm"
+
 vm v;
 #define constants (v.chunk->constants)
-#define code (v.chunk->code)
+#define vcode (v.chunk->code)
+#define peek(i) v.stack_top[-1 + i]
 
-#define pop() array_pop(v.stack, TValue)
-#define push(valu) array_push(v.stack, valu)
+#define pop() (v.stack_top--, array_pop(v.stack, TValue))
+#define push(valu) v.stack_top++, array_push(v.stack, valu)
+#define inp frame->ip
 
-#define read_byte() code[v.pc++]
+#define read_byte() *inp++
 
 #define read_u24()                                                        \
-	((v.pc += 3), (uint32_t) code[v.pc - 3] |                             \
-					  ((uint32_t) code[v.pc - 2] << 8) |                  \
-					  ((uint32_t) code[v.pc - 1] << 16))
+	((inp += 3), (uint32_t) *(inp - 3) | ((uint32_t) *(inp - 2) << 8) |   \
+					 ((uint32_t) *(inp - 1) << 16))
 
-#define read_short() (v.pc += 2, ((code[v.pc - 2] << 8) | code[v.pc - 1]));
+#define read_short() (inp += 2, ((*(inp - 2) << 8) | *(inp - 1)));
 
 #define read_wide()                                                       \
 	if (wide)                                                             \
@@ -48,35 +52,103 @@ vm v;
 #define wrongoperandsc(operand)                                           \
 	errorf("Wrong operands to binary operator `%c`", operand)
 
-void vm_init(Chunk* chunk)
+static void define_native(cstr_mut name, Native fun)
 {
-	v.stack	  = array(TValue);
-	v.chunk	  = chunk;
-	v.pc	  = 0;
-	v.objects = NULL;
+	haw_native* native = new_native(fun);
+	table_set(&v.globals, copy_string(name, strlen(name), NULL),
+			  v_obj(native));
+}
+
+static TValue clock_native(int argc, TValue* args)
+{
+	return v_int(cast(int, (double) clock() / CLOCKS_PER_SEC));
+}
+
+void vm_init()
+{
+	v.stack		= array(TValue);
+	v.objects	= NULL;
+	v.stack_top = v.stack;
 
 	table_init(&v.strings);
 	table_init(&v.globals);
+
+	define_native("clock", clock_native);
 }
 
-size_t chunk_size()
+static int call(haw_function* fun, int argc)
 {
-	size_t size = array_size(code);
+	if (argc != fun->argc)
+	{
+		errorf("Expected %d arguments, but got %d", fun->argc, argc);
+	}
 
-	return size;
+	if (v.frame_count == 64)
+	{
+		error("Stack overflow");
+	}
+
+	CallFrame* frame = &v.frames[v.frame_count++];
+	frame->function	 = fun;
+	frame->ip		 = fun->chunk.code;
+	frame->slots	 = &v.stack[array_size(v.stack) - argc - 1];
+
+	return 1;
+}
+
+static int call_value(TValue callee, int argc)
+{
+	if (t_isobject(&callee))
+	{
+		switch (obj_type(&callee))
+		{
+		case OBJ_FUNCTION:
+			return call(function_value(&callee), argc);
+		case OBJ_NATIVE:
+			Native native = native_value(&callee)->function;
+			TValue result = native(argc, v.stack_top - argc);
+			v.stack_top -= argc + 1;
+			push(result);
+			return 1;
+		default:
+			break;
+		}
+	}
+
+	error("Cannot call not function");
+}
+
+void interpret(haw_function* fun)
+{
+	if (fun == NULL)
+	{
+		return;
+	}
+	v.chunk = &fun->chunk;
+
+	push(v_obj(fun));
+	call(fun, 0);
+
+	CallFrame* frame = &v.frames[v.frame_count - 1];
+	inp				 = &vcode[0];
+
+	vm_execute();
 }
 
 void vm_execute()
 {
+	CallFrame* frame = &v.frames[v.frame_count - 1];
+
 	int index;
 	int wide = 0;	// wide flag
 
 	for (;;)
 	{
 		uint8_t instruction = read_byte();
+
 		if (instruction == OP_HALT)
 		{
-			v.pc = 0;
+			inp = 0;
 			return;
 		}
 
@@ -88,6 +160,45 @@ void vm_execute()
 			continue;
 		}
 
+		case OP_CALL:
+		{
+			read_wide();
+			int	   argc	  = index;
+			TValue callee = *(v.stack_top - 1 - argc);
+
+			if (call_value(callee, argc))
+			{
+				frame = &v.frames[v.frame_count - 1];
+				inp	  = frame->ip;
+			}
+			break;
+		}
+
+		case OP_RETURN:
+		{
+			TValue result = pop();
+			v.frame_count--;
+			if (v.frame_count == 0)
+			{
+				while (array_size(v.stack) > 0)
+					pop();
+				v.stack_top = v.stack;
+
+				return;
+			}
+
+			int diff = v.stack_top - frame->slots;
+			for (int i = 0; i < diff; i++)
+			{
+				pop();
+			}
+
+			v.stack_top = frame->slots;
+			push(result);
+			frame = &v.frames[v.frame_count - 1];
+			break;
+		}
+
 		case OP_JMPF:
 		{
 			uint16_t offset	   = read_short();
@@ -95,7 +206,7 @@ void vm_execute()
 
 			if (!v_istruth(&condition))
 			{
-				v.pc += offset;
+				inp += offset;
 			}
 
 			break;
@@ -103,14 +214,13 @@ void vm_execute()
 		case OP_JMP:
 		{
 			uint16_t offset = read_short();
-			v.pc += offset;
-
+			inp += offset;
 			break;
 		}
 		case OP_NJMP:
 		{
 			uint16_t offset = read_short();
-			v.pc -= offset;
+			inp -= offset;
 
 			break;
 		}
@@ -131,7 +241,8 @@ void vm_execute()
 
 		case OP_PRINT:
 		{
-			print_value(&pop());
+			TValue a = pop();
+			print_value(&a);
 			printf("\n");
 			break;
 		}
@@ -155,7 +266,7 @@ void vm_execute()
 
 			if (!table_get(&v.globals, var_name, &var_value))
 			{
-				error("Unknown variable");
+				errorf("Unknown variable `%s`", var_name->chars);
 			}
 
 			push(var_value);
@@ -165,14 +276,14 @@ void vm_execute()
 		case OP_SETLOCAL:
 		{
 			read_wide();
-			v.stack[index] = v.stack[array_size(v.stack) - 1];
+			frame->slots[index] = v.stack[array_size(v.stack) - 1];
 
 			break;
 		}
 		case OP_LOADLOCAL:
 		{
 			read_wide();
-			push(v.stack[index]);
+			push(frame->slots[index]);
 
 			break;
 		}
@@ -428,12 +539,14 @@ inline void vm_destroy()
 	table_destroy(&v.strings);
 	table_destroy(&v.globals);
 
-	chunk_destroy(v.chunk);
-	v.chunk = NULL;
-
 	if (!(array_empty(v.stack)))
 	{
-		printf("warning: stack is not empty at the end of runtime\n");
+		printf("warning: stack is not empty! Remaining elements: %d\n",
+			   (int) array_size(v.stack));
+		for (int i = 0; i < array_size(v.stack); i++)
+		{
+			printf("Stack[%d] type: %s\n", i, tok_2str(v.stack[i].type));
+		}
 	}
 
 	array_free(v.stack);

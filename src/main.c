@@ -1,3 +1,4 @@
+#include "parser/compiler.h"
 #include "share/common.h"
 #include "share/hawthorn.h"
 
@@ -12,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdnoreturn.h>
+#include <string.h>
 #include <unistd.h>
 
 flags_t flags = 0;
@@ -83,13 +85,16 @@ char* const readfile(cstr filename)
 static void run(cstr code)
 {
 	LexState ls;
-	vm_init(&p.chunk);
+	Compiler compiler;
+
+	vm_init();
+	compiler_init(&compiler, TYPE_SCRIPT);
 	parser_init(&p, &ls);
-	parse(code);
+	haw_function* fun = parse(code);
 
 	if (!getflag(flags, SKIP_RUN))
 	{
-		vm_execute();
+		interpret(fun);
 	}
 
 	lex_destroy(&ls);
@@ -123,7 +128,9 @@ static void repl_cycle()
 	setflag(REPL);
 	signal(SIGINT, stop_repl);
 	LexState ls;
-	vm_init(&p.chunk);
+	Compiler compiler;
+	vm_init();
+	compiler_init(&compiler, TYPE_SCRIPT);
 	parser_init(&p, &ls);
 
 	char buffer[BUFFER_SIZE];
@@ -138,11 +145,9 @@ static void repl_cycle()
 				break;
 			}
 			printf("\033[31;1;4m[!]\033[0m Error received.\n");
-
-			v.pc = 0;	// reset program counter
-			parser_clean(&p);
 			continue;
 		}
+
 		printf("\033[36;1;4m[>]\033[0m ");
 
 		if (fgets(buffer, BUFFER_SIZE, stdin) == NULL)
@@ -150,17 +155,23 @@ static void repl_cycle()
 			break;
 		}
 
-		parse(buffer);
+		if (buffer[0] == ':' && strcmp(buffer + 1, "clear\n") == 0)
+		{
+			printf("\033[2J\033[H");
+			fflush(stdout);
+			continue;
+		}
+
+		haw_function* fun = parse(buffer);
 
 		if (!getflag(flags, SKIP_RUN))
 		{
-			vm_execute();
+			interpret(fun);
 		}
-
-		parser_clean(&p);
 	}
 
 	lex_destroy(&ls);
+	compiler_end();
 	vm_destroy();
 }
 
@@ -182,6 +193,7 @@ int main(int argc, char* argv[])
 		if (access(filename, F_OK) != 0)
 		{
 			fprintf(stderr, "cannot open file %s\n", filename);
+
 			usage();
 			exit(1);
 		}

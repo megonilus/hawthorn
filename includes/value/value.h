@@ -12,19 +12,19 @@
 #define MODULE_NAME "value"
 
 // values of all types are first-class values: we can store them
-// in global variables, local variables and table fields, pass them as arguments to
-// functions, return them from functions, etc.
+// in global variables, local variables and table fields, pass them as
+// arguments to functions, return them from functions, etc.
 typedef union
 {
 	// gcobject in bright future...
 	// function...
-	haw_int	   int_;	// integer
-	haw_number number_; // float/double
+	haw_int	   int_;	  // integer
+	haw_number number_;	  // float/double
 	Obj*	   obj_;
 } Value;
 
 // tagged values like in lua
-typedef struct
+typedef struct TValue
 {
 	Value	value_;
 	HawType type;
@@ -47,14 +47,17 @@ typedef struct
 
 #define int_value(o) (o)->value_.int_
 #define number_value(o) (o)->value_.number_
-#define string_value(o) ((haw_string*) (o)->value_.obj_)
+#define string_value(o) cast_string((o)->value_.obj_)
 #define cstring_value(o) string_value(o)->chars
+#define function_value(o) cast_function((o)->value_.obj_)
+#define native_value(o) cast_native((o)->value_.obj_)
 
 #define obj_value(o) (o)->value_.obj_
 #define t_issame_objtype(a, b) (obj_value(a)->type == obj_value(b)->type)
-#define t_issame(a, b)                                                                             \
-	(t_isvalid(a) && t_isvalid(b)) &&                                                              \
-		(checktype(val_(a)->type, val_(b)->type) || t_issame_objtype(a, b))
+#define t_issame(a, b)                                                    \
+	(t_isvalid(a) && t_isvalid(b)) &&                                     \
+		(checktype(val_(a)->type, val_(b)->type) ||                       \
+		 t_issame_objtype(a, b))
 
 #define obj_type(o) obj_value(o)->type
 
@@ -72,7 +75,8 @@ typedef struct
 #define v_one() v_int(1)
 #define v_mone() v_int(-1)
 #define v_num(n) ((TValue) {.type = HAW_TNUMBER, .value_.number_ = n})
-#define v_str(s) ((TValue) {.type = HAW_TOBJECT, .value_.obj_ = cast_obj(s)})
+#define v_obj(s)                                                          \
+	((TValue) {.type = HAW_TOBJECT, .value_.obj_ = cast_obj(s)})
 
 void print_value(const TValue* value);
 
@@ -103,4 +107,4 @@ static inline int v_istruth(const TValue* v)
 	}
 }
 
-#endif //! haw_value_h
+#endif	 //! haw_value_h

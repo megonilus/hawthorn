@@ -5,9 +5,10 @@
 #include <share/common.h>
 #include <stdint.h>
 #include <type/type.h>
-#include <value/value.h>
 
-typedef TValue Constant;
+struct TValue;
+
+typedef struct TValue Constant;
 
 typedef struct
 {

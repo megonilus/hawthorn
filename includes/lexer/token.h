@@ -17,6 +17,7 @@ typedef enum
 	TK_RETURN = FIRST_RESERVED,
 	TK_BREAK,
 	TK_CONTINUE,
+	TK_FUN,
 
 	// blocks
 	TK_ELSE,
@@ -118,6 +119,7 @@ static cstr const haw_tokens[] = {[tok_pos(TK_RETURN)] = "return",
 								  [tok_pos(TK_INC)]		 = "++",
 								  [tok_pos(TK_DEC)]		 = "--",
 								  [tok_pos(TK_CONCAT)]	 = "<>",
+								  [tok_pos(TK_FUN)]		 = "fun",
 								  [tok_pos(TK_CONTINUE)] = "continue"};
 
 #define KW_GROUP(letter, body)                                            \

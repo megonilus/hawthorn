@@ -1,0 +1,9 @@
+fun abc: a, b
+{
+	return a + b;
+}
+
+set abc2 = abc(8, 9)
+print abc2
+
+

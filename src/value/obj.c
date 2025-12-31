@@ -75,6 +75,7 @@ haw_string* take_string(char* chars, int length, int* constant_index)
 
 	haw_string* string = allocate_string(hash, length, constant_index);
 	string->chars	   = chars;
+
 	endstring(string->chars, string->length);
 
 	return string;
@@ -131,6 +132,18 @@ haw_string* concatenate(haw_string* a, haw_string* b)
 	return string;
 }
 
+haw_function* new_function()
+{
+	haw_function* function = (haw_function*) allocate_object(
+		sizeof(haw_function), OBJ_FUNCTION);
+
+	function->argc = 0;
+	function->name = NULL;
+
+	chunk_init(&function->chunk);
+	return function;
+}
+
 void object_free(Obj* obj)
 {
 	switch (obj->type)
@@ -146,9 +159,30 @@ void object_free(Obj* obj)
 			free(string->chars);
 			free(string);
 		}
-
+		break;
+	case OBJ_FUNCTION:
+	{
+		haw_function* function = cast_function(obj);
+		chunk_destroy(&function->chunk);
+		free(function);
 		break;
 	}
+	case OBJ_NATIVE:
+	{
+		haw_native* native = cast(haw_native*, obj);
+		free(native);
+		break;
+	}
+	}
+}
+
+haw_native* new_native(Native fun)
+{
+	haw_native* native =
+		allocate_obj_fam(sizeof(haw_native), haw_native, OBJ_NATIVE);
+	native->function = fun;
+
+	return native;
 }
 
 void objects_free()

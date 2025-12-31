@@ -104,6 +104,27 @@ static void onearg_instruction(Chunk* chunk, int* offset, int wide)
 		jump  = 2;
 	}
 
+	printf("%4d %s %hu\n", *offset, op_name(chunk->code[*offset]), index);
+	*offset += jump;
+}
+
+static void oneargconst_instruction(Chunk* chunk, int* offset, int wide)
+{
+	int index;
+	int jump;
+	if (wide)
+	{
+		index =
+			from_u24(chunk->code[*offset + 1], chunk->code[*offset + 2],
+					 chunk->code[*offset + 3]);
+		jump = 4;
+	}
+	else
+	{
+		index = chunk->code[*offset + 1];
+		jump  = 2;
+	}
+
 	printf("%4d %s %hu (", *offset, op_name(chunk->code[*offset]), index);
 	if (index < array_size(chunk->constants))
 	{
@@ -121,7 +142,7 @@ static void onearg_instruction(Chunk* chunk, int* offset, int wide)
 static void short_instruction(Chunk* chunk, int* offset)
 {
 	printf("%4d %s %u\n", *offset, op_name(chunk->code[*offset]),
-		   chunk->code[*offset + 1] | chunk->code[*offset + 2] & 0xFF);
+		   chunk->code[*offset + 1] | (chunk->code[*offset + 2] & 0xFF));
 
 	*offset += 3;
 }
@@ -153,9 +174,12 @@ void disassemble(Chunk* chunk)
 			wide = 1;
 			simple_instruction(chunk->code[offset], &offset);
 			continue;
+		case OP_CALL:
+			onearg_instruction(chunk, &offset, wide);
+			break;
 		case OP_SETGLOBAL:
 		case OP_LOADGLOBAL:
-			onearg_instruction(chunk, &offset, wide);
+			oneargconst_instruction(chunk, &offset, wide);
 			break;
 		case OP_SETLOCAL:
 		case OP_LOADLOCAL:
